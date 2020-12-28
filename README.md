@@ -1,5 +1,5 @@
 # bdsX-scripts
-Script/custom module for bdsX
+Script/Custom Module for bdsX
 
 
 The MIT License (MIT)
