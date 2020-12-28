@@ -28,6 +28,11 @@ netevent.close.on(networkIdentifier => {
     nIt.delete(id);
     console.log(`${id}> deleted Form Data`);
 });
+function Custom_dataFix(data) {
+    var dataArr = String(data).replace("[","").replace("]","").replace(/\"/gi, '').split(',');
+    return dataArr;
+};
+exports.dataFix = Custom_dataFix;
 var formlog = 'false';
 command.hook.on((command, originName) => {
     if (originName == 'Server' && command.startsWith('/formlog ')) {
@@ -47,7 +52,7 @@ netevent.raw(PacketId.ModalFormResponse).on((ptr, size, networkIdentifier) => {
     if (formlog == 'true') console.log(datas);
     if (datas.formId == dataValue) {
         var dataResult = FormDataSaver.get(dataValue);
-        data = Number(datas.formData.replace("\n",""));
+        data = datas.formData.replace("\n","");
         FormDataSaver.delete(dataValue);
         FormDataloader.delete(networkIdentifier);
         dataResult(data);
