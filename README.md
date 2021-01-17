@@ -3,9 +3,9 @@ Script/Custom Module for bdsX/bdsx2
 
 BDSX1 scripts includes...
 ```
--Module
--Form_Sample
--
+-2913Module
+-Form_Sample.js
+-GetPermission_Sample.js
 ```
 
 
