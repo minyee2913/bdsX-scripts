@@ -1,6 +1,16 @@
 # bdsX-scripts
 Script/Custom Module for bdsX/bdsx2
 
+BDSX1 scripts includes...
+```
+-Module
+-Form_Sample
+-
+```
+
+
+
+
 ```
 world Edit Scripts need my custom addon.
 You can change code to use the default items.
