@@ -17,7 +17,7 @@ Script/Custom Module for [bdsX/bdsx2](https://github.com/karikera/bdsx)
 -worldedit.ts  //Scripts need my custom addon. You can change code to use the default items.
 ```
 
-##2913Module
+## 2913Module
 2913Module has send and listen some packets likes...
 ```
 Modalform, get PlayerData By anotherData, textPacket(raw, chat, tip...), PlayerPermission and more!
@@ -29,7 +29,7 @@ import { /* write module here */ } from './2913Module';
 ```
 
 
-##The MIT License (MIT)
+## The MIT License (MIT)
 
 Copyright (c) 2020 minyee2913
 
