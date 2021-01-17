@@ -8,7 +8,7 @@ Script/Custom Module for [bdsX/bdsx2](https://github.com/karikera/bdsx)
 -GetPermission_Sample.js
 ```
 
-BDSX2 scripts includes...
+[BDSX2 scripts](https://github.com/minyee2913/bdsX-scripts/tree/main/example_and_test-BDSX2) includes...
 ```
 -2913Module.js //this is an Patched SET of 2913Module in BDSX2
 -index.ts
