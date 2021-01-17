@@ -18,7 +18,7 @@ Script/Custom Module for [bdsX/bdsx2](https://github.com/karikera/bdsx)
 ```
 
 ## 2913Module
-2913Module has send and listen some packets likes...
+2913Module has send and listen some packets and data likes...
 ```
 Modalform, get PlayerData By anotherData, textPacket(raw, chat, tip...), PlayerPermission and more!
 ```
