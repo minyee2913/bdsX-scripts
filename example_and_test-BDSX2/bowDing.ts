@@ -1,5 +1,5 @@
 const system = server.registerSystem(0, 0);
-system.listenForEvent("minecraft:entity_hurt", ({data: eventData}) => {
+system.listenForEvent("minecraft:entity_hurt", eventData => {
 	const { 
 		attacker,
 		entity,
