@@ -5,6 +5,7 @@ console.log(yellow('====') + red('SCRIPTS') + yellow('===='));
 //========
 import './anticheat';
 import './bowDing';
-import './worldedit';
+import './worldedit'
+import './ban';
 //========
 console.log(yellow('==============='));
