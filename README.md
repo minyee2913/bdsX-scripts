@@ -7,20 +7,29 @@ Script/Custom Module for [bdsX/bdsx2](https://github.com/karikera/bdsx)
 -Form_Sample.js
 -GetPermission_Sample.js
 ```
+※I don't update BDSX1 scripts never※
 
 [BDSX2 scripts](https://github.com/minyee2913/bdsX-scripts/tree/main/example_and_test-BDSX2) includes...
 ```
--2913Module.js //this is an Patched SET of 2913Module in BDSX2
+-2913Module.ts //this is an Patched SET of 2913Module in BDSX2
 -index.ts
 -bowDing.ts
 -worldedit.ts  //Scripts need my custom addon. You can change code to use the default items.
 ```
 
+##2913Module
+2913Module has send and listen some packets likes...
+```
+Modalform, get PlayerData By anotherData, textPacket(raw, chat, tip...), PlayerPermission and more!
+```
+
+To use write this code
+```ts
+import { /* write module here */ } from './2913Module';
+```
 
 
-
-
-The MIT License (MIT)
+##The MIT License (MIT)
 
 Copyright (c) 2020 minyee2913
 
