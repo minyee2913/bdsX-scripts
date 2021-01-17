@@ -9,7 +9,7 @@
 //
 //
 import { netevent, PacketId, command, NetworkIdentifier, createPacket, sendPacket, MinecraftPacketIds } from "bdsx";
-import { ModalFormRequestPacket, SetHealthPacket, TextPacket, TransferPacket } from "bdsx/bds/packets";
+import { ContainerOpenPacket, DisconnectPacket, ModalFormRequestPacket, SetHealthPacket, TextPacket, TransferPacket } from "bdsx/bds/packets";
 const system = server.registerSystem(0,0);
 const fs = require('fs');
 
@@ -33,17 +33,25 @@ netevent.close.on(networkIdentifier => {
     nIt.delete(id);
     playerList.splice(playerList.indexOf(id),1);
 });
-
+/**
+  *get playerXuid by Name
+*/
 function XuidByName(PlayerName: string) {
-    let Rlt = nXt.get(PlayerName);
+    let Rlt:any = nXt.get(PlayerName);
     return Rlt;
 }
+/**
+  *get playerName by Id
+*/
 function NameById(networkIdentifier: NetworkIdentifier) {
-    let Rlt = nMt.get(networkIdentifier);
+    let Rlt:string = nMt.get(networkIdentifier);
     return Rlt;
 }
+/**
+  *get playerId by Name
+*/
 function IdByName(PlayerName: string) {
-    let Rlt = nIt.get(PlayerName);
+    let Rlt:NetworkIdentifier = nIt.get(PlayerName);
     return Rlt;
 }
 
@@ -52,15 +60,17 @@ function IdByName(PlayerName: string) {
 
 let FormDataSaver = new Map;
 let FormDataloader = new Map;
-function Formsend(networkIdentifier: any, form: any, handler = (data: any) => {}) {
-    const modalPacket = ModalFormRequestPacket.create();
-    let formId = Math.floor(Math.random() * 2147483647) + 1;
-    modalPacket.setUint32(formId, 0x28);
-    modalPacket.setCxxString(JSON.stringify(form), 0x30);
-    modalPacket.sendTo(networkIdentifier, 0);
-    FormDataSaver.set(formId, handler);
-    FormDataloader.set(networkIdentifier, formId);
-    modalPacket.dispose();
+function Formsend(networkIdentifier: NetworkIdentifier, form: object, handler = (data: any) => {}) {
+    try {
+        const modalPacket = ModalFormRequestPacket.create();
+        let formId = Math.floor(Math.random() * 2147483647) + 1;
+        modalPacket.setUint32(formId, 0x28);
+        modalPacket.setCxxString(JSON.stringify(form), 0x30);
+        modalPacket.sendTo(networkIdentifier, 0);
+        FormDataSaver.set(formId, handler);
+        FormDataloader.set(networkIdentifier, formId);
+        modalPacket.dispose();
+    } catch (err) {}
 }
 netevent.raw(PacketId.ModalFormResponse).on((ptr, size, networkIdentifier) => {
     let datas: {[key: string]: any} = {};
@@ -126,10 +136,11 @@ function playerPermission(playerName: string, ResultEvent = (perm: any) => {}) {
 };
 
 /////////////////////////////////////////
-//Permission
+//Score
 
 function getScore(targetName: string, objectives: string, handler = (result: any) => {}) {
-    system.executeCommand(`scoreboard players add "${targetName}" ${objectives} 0`, result => {
+    system.executeCommand(`scoreboard players add @p[name="${targetName}"] ${objectives} 0`, result => {
+    // @ts-ignore
     let msgs = result.data.statusMessage;
     let msg = String(msgs).split('now', undefined);
     let a = String(msg[1]);
@@ -138,6 +149,16 @@ function getScore(targetName: string, objectives: string, handler = (result: any
     });
     return;
 };
+
+/////////////////////////////////////////
+//Disconnect
+
+function Disconnect(networkidentifier: NetworkIdentifier, message: string) {
+    const Packet = DisconnectPacket.create();
+    Packet.message = message;
+    Packet.sendTo(networkidentifier, 0);
+    Packet.dispose();
+}
 
 export { 
     Formsend,
@@ -149,5 +170,6 @@ export {
     setHealth,
     playerPermission,
     getScore,
-    playerList
+    playerList,
+    Disconnect
 };
