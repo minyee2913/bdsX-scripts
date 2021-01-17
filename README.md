@@ -1,5 +1,5 @@
 # bdsX-scripts
-Script/Custom Module for [bdsX/bdsx2]https://github.com/karikera/bdsx
+Script/Custom Module for [bdsX/bdsx2](https://github.com/karikera/bdsx)
 
 BDSX1 scripts includes...
 ```
