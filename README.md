@@ -1,5 +1,5 @@
 # bdsX-scripts
-Script/Custom Module for bdsX/bdsx2
+Script/Custom Module for [bdsX/bdsx2]https://github.com/karikera/bdsx
 
 BDSX1 scripts includes...
 ```
@@ -8,13 +8,17 @@ BDSX1 scripts includes...
 -GetPermission_Sample.js
 ```
 
-
-
-
+BDSX2 scripts includes...
 ```
-world Edit Scripts need my custom addon.
-You can change code to use the default items.
+-2913Module.js //this is an Patched SET of 2913Module in BDSX2
+-index.ts
+-bowDing.ts
+-worldedit.ts  //Scripts need my custom addon. You can change code to use the default items.
 ```
+
+
+
+
 
 The MIT License (MIT)
 
