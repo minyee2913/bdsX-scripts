@@ -1,6 +1,10 @@
 # bdsX-scripts
-Script/Custom Module for bdsX
+Script/Custom Module for bdsX/bdsx2
 
+```
+world Edit Scripts need my custom addon.
+You can change code to use the default items.
+```
 
 The MIT License (MIT)
 
