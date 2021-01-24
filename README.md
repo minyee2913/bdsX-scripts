@@ -1,13 +1,6 @@
 # bdsX-scripts
-Script/Custom Module for [bdsX/bdsx2](https://github.com/karikera/bdsx)
+Script/Custom Module for [bdsx2](https://github.com/karikera/bdsx)
 
-[BDSX1 scripts](https://github.com/minyee2913/bdsX-scripts/tree/main/scripts-BDSX1) includes...
-```
--2913Module
--Form_Sample.js
--GetPermission_Sample.js
-```
-※I don't update BDSX1 scripts never※
 
 [BDSX2 scripts](https://github.com/minyee2913/bdsX-scripts/tree/main/example_and_test-BDSX2) includes...
 ```
