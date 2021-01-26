@@ -11,9 +11,8 @@
 import { netevent, PacketId, command, NetworkIdentifier, createPacket, sendPacket, MinecraftPacketIds } from "bdsx";
 import { ContainerOpenPacket, DisconnectPacket, ModalFormRequestPacket, SetHealthPacket, TextPacket, TransferPacket } from "bdsx/bds/packets";
 const system = server.registerSystem(0,0);
-const fs = require('fs');
 
-let playerList: any = [];
+let playerList:string[] = [];
 let nIt = new Map();
 let nMt = new Map();
 let nXt = new Map();
@@ -60,6 +59,10 @@ function IdByName(PlayerName: string) {
 
 let FormDataSaver = new Map;
 let FormDataloader = new Map;
+
+/**
+  *JsonType example : https://github.com/NLOGPlugins/Form_Json
+*/
 function Formsend(networkIdentifier: NetworkIdentifier, form: object, handler = (data: any) => {}) {
     try {
         const modalPacket = ModalFormRequestPacket.create();
@@ -89,7 +92,20 @@ netevent.raw(PacketId.ModalFormResponse).on((ptr, size, networkIdentifier) => {
 
 /////////////////////////////////////////
 //TEXT
-
+/**
+ * 
+ *Type Code : 
+ * Raw == 0,
+ * Chat == 1,
+ * Translation == 2,
+ * Popup == 3,
+ * Jukeboxpopup == 4,
+ * Tip == 5,
+ * system == 6,
+ * Whisper == 7,
+ * Announcement == 8,
+ * Json == 9,
+*/
 function sendText(networkIdentifier: NetworkIdentifier, text: string, type: number) {
     const Packet = TextPacket.create();
     Packet.message = text;
@@ -125,7 +141,7 @@ function setHealth(networkIdentifier: NetworkIdentifier, value: number) {
 function playerPermission(playerName: string, ResultEvent = (perm: any) => {}) {
     var operJs;
     var permissions;
-    operJs = JSON.parse(fs.readFileSync("permissions.json", "utf8"))
+    operJs = JSON.parse(readFileSync("permissions.json", "utf8"))
     var ojs = operJs.map((e:any, i:any) => e);
     ojs.forEach(function(element: any, index: any, array: any){
         if (element.xuid == nXt.get(playerName)) {
@@ -159,7 +175,9 @@ function Disconnect(networkidentifier: NetworkIdentifier, message: string) {
     Packet.sendTo(networkidentifier, 0);
     Packet.dispose();
 }
-
+import { red } from 'colors';
+import { readFileSync } from "fs";
+console.log(red('2913MODULE LOADED'));
 export { 
     Formsend,
     XuidByName,
