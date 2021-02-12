@@ -11,4 +11,5 @@ system.listenForEvent("minecraft:entity_hurt", eventData => {
 	}
 })
 import { green } from 'colors';
-console.log(green('bowDing.js loaded'));
+console.log(green('bowDing.ts loaded'));
+exports {}
