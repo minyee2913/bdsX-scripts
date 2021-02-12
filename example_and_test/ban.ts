@@ -86,5 +86,5 @@ netevent.after(MinecraftPacketIds.Login).on((ptr, networkidentifier, packetId) =
 })
 
 import { green } from 'colors';
-console.log(green('ban.js loaded'));
+console.log(green('ban.ts loaded'));
 export {};
