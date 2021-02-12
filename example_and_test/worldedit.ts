@@ -232,5 +232,5 @@ system.listenForEvent("minecraft:player_placed_block", eventData => {
   }
 });
 import { green } from 'colors';
-console.log(green('worldedit.js loaded'));
+console.log(green('worldedit.ts loaded'));
 export {};
