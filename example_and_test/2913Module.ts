@@ -11,8 +11,10 @@
 import { netevent, PacketId, command, NetworkIdentifier, createPacket, sendPacket, MinecraftPacketIds, RawTypeId } from "bdsx";
 import { BlockPos } from "bdsx/bds/blockpos";
 import { GameMode } from "bdsx/bds/gamemode";
-import { ContainerOpenPacket, DisconnectPacket, ModalFormRequestPacket, SetHealthPacket, TextPacket, TransferPacket } from "bdsx/bds/packets";
-import { ProcHacker } from "bdsx/prochacker";
+import { BossEventPacket, ContainerOpenPacket, DisconnectPacket, ModalFormRequestPacket, RemoveObjectivePacket, SetDisplayObjectivePacket, SetHealthPacket, SetScorePacket, TextPacket, TransferPacket } from "bdsx/bds/packets";
+import { red } from 'colors';
+import { open, readFileSync, writeFileSync } from "fs";
+import { fileURLToPath } from "url";
 const system = server.registerSystem(0,0);
 
 let playerList:string[] = [];
@@ -26,14 +28,19 @@ netevent.after(PacketId.Login).on((ptr, networkIdentifier) => {
     nXt.set(username, xuid);
     nIt.set(username, networkIdentifier);
     nMt.set(networkIdentifier, username);
-    playerList.push(username);
+});
+netevent.after(PacketId.SetLocalPlayerAsInitialized).on((ptr, target) => {
+    let actor = target.getActor();
+    let entity:any = actor?.getEntity();
+    let playerName = system.getComponent(entity, MinecraftComponent.Nameable)!.data.name;
+    setTimeout(()=>{playerList.push(playerName);},100);
 });
 netevent.close.on(networkIdentifier => {
     const id = nMt.get(networkIdentifier);
+    playerList.splice(playerList.indexOf(id),1);
     nXt.delete(id);
     nMt.delete(networkIdentifier);
     nIt.delete(id);
-    playerList.splice(playerList.indexOf(id),1);
 });
 /**
   *get playerXuid by Name
@@ -73,6 +80,7 @@ function IdByName(PlayerName: string) {
 
 let FormDataSaver = new Map;
 let FormDataloader = new Map;
+let Forming:NetworkIdentifier[] = [];
 
 /**
   *JsonType example : https://github.com/NLOGPlugins/Form_Json
@@ -153,46 +161,102 @@ function setHealth(networkIdentifier: NetworkIdentifier, value: number) {
 //Permission
 
 function playerPermission(playerName: string, ResultEvent = (perm: any) => {}) {
-    var operJs;
-    var permissions;
-    operJs = JSON.parse(readFileSync("permissions.json", "utf8"))
-    var ojs = operJs.map((e:any, i:any) => e);
-    ojs.forEach(function(element: any, index: any, array: any){
-        if (element.xuid == nXt.get(playerName)) {
-            permissions = element.permission;
-        }
-    });
+    let xuid = nXt.get(playerName);
+    var operJs:{permission:string, xuid:string}[];
+    let permissions = '';
+    try {
+        operJs = JSON.parse(readFileSync("permissions.json", "utf8"));
+        let Js = operJs.find((v)=> v.xuid == xuid);
+        if (Js != undefined) permissions = Js.permission;
+        if (Js == undefined) permissions = 'member';
+    } catch(err) {
+        permissions = 'member';
+    }
     ResultEvent(permissions);
+    return permissions;
 };
 
 /////////////////////////////////////////
 //Score
 
 function getScore(targetName: string, objectives: string, handler = (result: any) => {}) {
-    system.executeCommand(`scoreboard players test "${targetName}" ${objectives} * *`, result => {
-        if (result.data.statusCode == 0) system.executeCommand(`scoreboard players add "${targetName}" ${objectives} 0`, result => {
-            // @ts-ignore
-            let msgs = result.data.statusMessage;
-            let msg = String(msgs).split('now', undefined);
-            let a = String(msg[1]);
-            let s = null;
-            if (a.includes('-') == true) s = Number(a.replace(/[^0-9  ]/g, '')) - (Number(a.replace(/[^0-9  ]/g, '')) * 2);
-            if (a.includes('-') == false) s = Number(a.replace(/[^0-9  ]/g, ''));
-            handler(s);
-        });
-        if (result.data.statusCode != 0) system.executeCommand(`scoreboard players add @p[name="${targetName}"] ${objectives} 0`, result => {
-            // @ts-ignore
-            let msgs = result.data.statusMessage;
-            let msg = String(msgs).split('now', undefined);
-            let a = String(msg[1]);
-            let s = null;
-            if (a.includes('-') == true) s = Number(a.replace(/[^0-9  ]/g, '')) - (Number(a.replace(/[^0-9  ]/g, '')) * 2);
-            if (a.includes('-') == false) s = Number(a.replace(/[^0-9  ]/g, ''));
-            handler(s);
-        });
+    system.executeCommand(`scoreboard players add @a[name="${targetName}",c=1] ${objectives} 0`, result => {
+        // @ts-ignore
+        let msgs = result.data.statusMessage;
+        let msg = String(msgs).split('now', undefined);
+        let a = String(msg[1]);
+        let s = null;
+        if (a.includes('-') == true) s = Number(a.replace(/[^0-9  ]/g, '')) - (Number(a.replace(/[^0-9  ]/g, '')) * 2);
+        if (a.includes('-') == false) s = Number(a.replace(/[^0-9  ]/g, ''));
+        handler(s);
     });
     return;
 };
+
+class ScoreTYPE {
+	public TYPE_PLAYER = 1;
+	public TYPE_ENTITY = 2;
+	public TYPE_FAKE_PLAYER = 3;
+}
+class ScoreEntry {
+
+	public scoreboardId:number;
+	public objectiveName:string;
+	public score:number;
+	public type:number;
+	public entityUniqueId:number|null;
+	public customName:string|null;
+}
+class scoreboard{
+
+	CreateSidebar(player:NetworkIdentifier, name:string, order:number) {
+		const pkt = SetDisplayObjectivePacket.create();
+		pkt.setCxxString("sidebar", 0x28);
+		pkt.setCxxString("2913:sidebar", 0x48);
+		pkt.setCxxString(name, 0x68)
+		pkt.setCxxString("dummy", 0x88);
+		pkt.setInt32(order, 0xA8);
+		pkt.sendTo(player);
+		pkt.dispose();
+	}
+	destroySidebar(player:NetworkIdentifier){
+		const pkt = RemoveObjectivePacket.create();
+		pkt.setCxxString("2913:sidebar", 0x28);
+		pkt.sendTo(player);
+		pkt.dispose();
+	}
+	SetSidebarValue(player:NetworkIdentifier, Id:number, name:string, score:number) {
+		const pkt = SetScorePacket.create();
+		// let entry = new ScoreEntry()
+		// entry.objectiveName = '2913:sidebar';
+		// entry.type = ScoreTYPE.prototype.TYPE_FAKE_PLAYER;
+		// entry.score = score;
+		// entry.scoreboardId = Id;
+		// entry.customName = name;
+		// console.log(JSON.stringify(entry));
+		pkt.setCxxString('2913:sidebar', 0x48);
+		pkt.setInt32(ScoreTYPE.prototype.TYPE_FAKE_PLAYER, 0x8B);
+		pkt.setInt32(score, 0xC4);
+		pkt.setInt32(Id, 0x57);
+		pkt.setCxxString(name, 0x48);
+		pkt.setInt32(0, 0x81);
+		// pkt.setCxxString(JSON.stringify(entry), 0x48);
+		pkt.sendTo(player);
+		pkt.dispose();
+	}
+	CreateList(player:NetworkIdentifier, name:string, order:number) {
+		const pkt = SetDisplayObjectivePacket.create();
+		pkt.setCxxString("list", 0x28);
+		pkt.setCxxString("2913:list", 0x48);
+		pkt.setCxxString(name, 0x68)
+		pkt.setCxxString("dummy", 0x88);
+		pkt.setInt32(order, 0xA8);
+		pkt.sendTo(player);
+		pkt.dispose();
+	}
+}
+
+const CustomScore = new scoreboard();
 
 /////////////////////////////////////////
 //Disconnect
@@ -204,8 +268,31 @@ function Disconnect(networkidentifier: NetworkIdentifier, message: string) {
     Packet.dispose();
 }
 
-import { red } from 'colors';
-import { readFileSync } from "fs";
+///////////////////////////////////////
+//bossbar
+
+function setBossBar(target: NetworkIdentifier, title: string, healthPercent: number): void {
+    let pk = BossEventPacket.create();
+    let uniqueId:any = target.getActor()?.getUniqueIdPointer().getBin64();
+    pk.setBin(uniqueId, 0x30);
+    pk.setUint32(0, 0x40);
+    pk.setCxxString(title, 0x48);
+    pk.setFloat32(healthPercent, 0x68);
+    pk.sendTo(target);
+    pk.dispose();
+}
+
+function deleteBossBar(target: NetworkIdentifier): void {
+    let pk = BossEventPacket.create();
+    let uniqueId:any = target.getActor()?.getUniqueIdPointer().getBin64();
+    pk.setBin(uniqueId, 0x30);
+    pk.setUint32(2, 0x40);
+    pk.setCxxString("", 0x48);
+    pk.setFloat32(0, 0x68);
+    pk.sendTo(target);
+    pk.dispose();
+}
+
 console.log(red('2913MODULE LOADED'));
 export { 
     Formsend,
@@ -219,5 +306,8 @@ export {
     getScore,
     playerList,
     Disconnect,
-    DataById
+    DataById,
+    CustomScore,
+    setBossBar,
+    deleteBossBar
 };
