@@ -17,6 +17,11 @@ class editor {
   public Pos2:Pos
 }
 const editors = new Map<NetworkIdentifier, editor>();
+NetworkIdentifier.close.on((ni)=>{
+  if (editors.has(ni)) {
+    editors.delete(ni);
+  }
+})
 
 ListenInvTransaction(ev => {
   if (!editors.has(ev.networkIdentifier)) {
@@ -25,12 +30,6 @@ ListenInvTransaction(ev => {
   }
   let tg = editors.get(ev.networkIdentifier)!;
 
-
-  NetworkIdentifier.close.on((ni)=>{
-    if (editors.has(ni)) {
-      editors.delete(ni);
-    }
-  })
 
   //LEFT CLICK
   clearTimeout(tg.Left);
