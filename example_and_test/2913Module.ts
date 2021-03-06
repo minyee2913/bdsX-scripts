@@ -8,20 +8,17 @@
 // |_____|        |_____|   |__|    |___|  \_______|       |____|       |__________|    |__________|     |___________|           |__|   |_________| |__________|  
 //
 //
-import { netevent, PacketId, command, NetworkIdentifier, createPacket, sendPacket, MinecraftPacketIds, RawTypeId } from "bdsx";
-import { BlockPos } from "bdsx/bds/blockpos";
-import { GameMode } from "bdsx/bds/gamemode";
+import { PacketId, command, NetworkIdentifier, MinecraftPacketIds, RawTypeId, Actor, nethook, ServerPlayer } from "bdsx";
 import { BossEventPacket, ContainerOpenPacket, DisconnectPacket, ModalFormRequestPacket, RemoveObjectivePacket, SetDisplayObjectivePacket, SetHealthPacket, SetScorePacket, TextPacket, TransferPacket } from "bdsx/bds/packets";
 import { red } from 'colors';
 import { open, readFileSync, writeFileSync } from "fs";
-import { fileURLToPath } from "url";
 const system = server.registerSystem(0,0);
 
 let playerList:string[] = [];
 let nIt = new Map();
 let nMt = new Map();
 let nXt = new Map();
-netevent.after(PacketId.Login).on((ptr, networkIdentifier) => {
+nethook.after(PacketId.Login).on((ptr, networkIdentifier) => {
     const cert = ptr.connreq.cert;
     const xuid = cert.getXuid();
     const username = cert.getId();
@@ -29,15 +26,17 @@ netevent.after(PacketId.Login).on((ptr, networkIdentifier) => {
     nIt.set(username, networkIdentifier);
     nMt.set(networkIdentifier, username);
 });
-netevent.after(PacketId.SetLocalPlayerAsInitialized).on((ptr, target) => {
+nethook.after(PacketId.SetLocalPlayerAsInitialized).on((ptr, target) => {
     let actor = target.getActor();
-    let entity:any = actor?.getEntity();
-    let playerName = system.getComponent(entity, MinecraftComponent.Nameable)!.data.name;
-    setTimeout(()=>{playerList.push(playerName);},100);
+    let entity = actor!.getEntity();
+    let playerName = system.getComponent(entity, "minecraft:nameable")!.data.name;
+    setTimeout(()=>{
+        if(!playerList.includes(playerName)) playerList.push(playerName);
+    },100);
 });
-netevent.close.on(networkIdentifier => {
+NetworkIdentifier.close.on(networkIdentifier => {
     const id = nMt.get(networkIdentifier);
-    playerList.splice(playerList.indexOf(id),1);
+    if (playerList.includes(id)) playerList.splice(playerList.indexOf(id),1);
     nXt.delete(id);
     nMt.delete(networkIdentifier);
     nIt.delete(id);
@@ -62,9 +61,9 @@ function NameById(networkIdentifier: NetworkIdentifier) {
 */
 function DataById(networkIdentifier: NetworkIdentifier) {
     let actor = networkIdentifier.getActor();
-    let entity:any = actor?.getEntity();
-    let name = system.getComponent(entity, MinecraftComponent.Nameable)!.data.name;
-    let xuid = nXt.get(name);
+    let entity = actor!.getEntity();
+    let name = system.getComponent(entity, "minecraft:nameable")!.data.name;
+    let xuid:any = nXt.get(name);
     return [name, actor, entity, xuid];
 }
 /**
@@ -80,12 +79,11 @@ function IdByName(PlayerName: string) {
 
 let FormDataSaver = new Map;
 let FormDataloader = new Map;
-let Forming:NetworkIdentifier[] = [];
 
 /**
   *JsonType example : https://github.com/NLOGPlugins/Form_Json
 */
-function Formsend(networkIdentifier: NetworkIdentifier, form: object, handler = (data: any | any[]) => {}) {
+function Formsend(networkIdentifier: NetworkIdentifier, form: object, handler = (data: any) => {}) {
     try {
         const modalPacket = ModalFormRequestPacket.create();
         let formId = Math.floor(Math.random() * 2147483647) + 1;
@@ -97,7 +95,7 @@ function Formsend(networkIdentifier: NetworkIdentifier, form: object, handler = 
         modalPacket.dispose();
     } catch (err) {}
 }
-netevent.raw(PacketId.ModalFormResponse).on((ptr, size, networkIdentifier) => {
+nethook.raw(PacketId.ModalFormResponse).on((ptr, size, networkIdentifier) => {
     let datas: {[key: string]: any} = {};
     ptr.move(1);
     datas.formId = ptr.readVarUint();
@@ -183,7 +181,7 @@ function getScore(targetName: string, objectives: string, handler = (result: any
     system.executeCommand(`scoreboard players add @a[name="${targetName}",c=1] ${objectives} 0`, result => {
         // @ts-ignore
         let msgs = result.data.statusMessage;
-        let msg = String(msgs).split('now', undefined);
+        let msg = String(msgs).split('now');
         let a = String(msg[1]);
         let s = null;
         if (a.includes('-') == true) s = Number(a.replace(/[^0-9  ]/g, '')) - (Number(a.replace(/[^0-9  ]/g, '')) * 2);
@@ -293,6 +291,75 @@ function deleteBossBar(target: NetworkIdentifier): void {
     pk.dispose();
 }
 
+///////////////////////
+
+function netCmd(handler = (ev:{command:string, networkIdentifier:NetworkIdentifier, originActor:Actor, originEntity: IEntity, originName: string, originXuid: string})=>{}) {
+    nethook.before(PacketId.CommandRequest).on((pkt, target)=>{
+        let data = DataById(target);
+        let ev = {
+            command: pkt.command,
+            networkIdentifier: target,
+            originActor: data[1],
+            originEntity: data[2],
+            originName: data[0],
+            originXuid: data[3]
+        }
+        return handler(ev);
+    })
+}
+
+function numberFormat(x:any) {
+    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+  
+  function numberToKorean(number:number){
+    var inputNumber:any  = number < 0 ? false : number;
+    var unitWords    = ['', '만', '억', '조', '경'];
+    var splitUnit    = 10000;
+    var splitCount   = unitWords.length;
+    var resultArray  = [];
+    var resultString = '';
+  
+    for (var i = 0; i < splitCount; i++){
+        let unitResult = (inputNumber % Math.pow(splitUnit, i + 1)) / Math.pow(splitUnit, i);
+        unitResult = Math.floor(unitResult);
+        if (unitResult > 0){
+            resultArray[i] = unitResult;
+        }
+    }
+  
+    for (var i = 0; i < resultArray.length; i++){
+        if(!resultArray[i]) continue;
+        resultString = String(numberFormat(resultArray[i])) + unitWords[i] + resultString;
+    }
+    if (number == 0) resultString = "0"
+
+    return resultString;
+}
+
+function ListenInvTransaction(handler = (ev: {sactiontype: number;sourceType: number;CraftingAction: number;ReleaseAction: number;UseAction: number;useOnAction: number;networkIdentifier:NetworkIdentifier; size:number}) => {}){
+    nethook.raw(PacketId.InventoryTransaction).on((ptr, size, networkIdentifier)=>{
+        let sactiontype = ptr.readVarInt();
+        let sourceType = ptr.readVarInt();
+        let CraftingAction = ptr.readVarInt();
+        let ReleaseAction = ptr.readVarInt();
+        let UseAction = ptr.readVarInt();
+        let useOnAction = ptr.readVarInt();
+        let ev = {
+            sactiontype: sactiontype,
+            sourceType: sourceType,
+            CraftingAction: CraftingAction,
+            ReleaseAction: ReleaseAction,
+            UseAction: UseAction,
+            useOnAction: useOnAction,
+            networkIdentifier: networkIdentifier,
+            size: size
+        }
+        console.log(`size : ${String(size)}\n\nsactiontype : ${String(sactiontype)}\nsourcetype : ${String(sourceType)}\nCraftingAction : ${String(CraftingAction)}\nReleaseAction : ${String(ReleaseAction)}\nUseAction : ${String(UseAction)}\nuseOnAction : ${String(useOnAction)}`)
+        return handler(ev);
+    });
+}
+
 console.log(red('2913MODULE LOADED'));
 export { 
     Formsend,
@@ -309,5 +376,9 @@ export {
     DataById,
     CustomScore,
     setBossBar,
-    deleteBossBar
+    deleteBossBar,
+    netCmd,
+    numberToKorean,
+    numberFormat,
+    ListenInvTransaction
 };
