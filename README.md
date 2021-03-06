@@ -7,7 +7,7 @@ Script/Custom Module for [bdsx2](https://github.com/karikera/bdsx)
 -2913Module.ts //this is an Patched SET of 2913Module in BDSX2
 -index.ts
 -bowDing.ts
--worldedit.ts  //Scripts need my custom addon. You can change code to use the default items.
+-worldedit.ts
 -guild.ts
 -ban.ts
 ```
