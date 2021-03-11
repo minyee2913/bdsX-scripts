@@ -23,7 +23,7 @@ NetworkIdentifier.close.on((ni)=>{
   }
 })
 
-ListenInvTransaction(ev => {
+ListenInvTransaction(ev => { //IT HAS BUGGGGGGGGGGG
   if (!editors.has(ev.networkIdentifier)) {
     let js = new editor();
     editors.set(ev.networkIdentifier, js);
