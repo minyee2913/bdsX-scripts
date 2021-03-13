@@ -4,8 +4,9 @@ import { red, yellow } from 'colors';
 console.log(yellow('====') + red('SCRIPTS') + yellow('===='));
 //========
 import './bowDing';
-import './worldedit'
+import './worldedit';
 import './ban';
 import './guild';
+import './damageHandler.ts';
 //========
 console.log(yellow('==============='));
