@@ -1,15 +1,15 @@
 //
-// _______        _______    __     _____     ______    ___      ___                                                      ________          ___      __________   
+// _______        _______    __     _____     ______    ___      ___                                                      ________          ___      __________
 // |      \      /      |   |__|    |    \    |    |    \  \    /  /    ___________     ___________       __________    _|        |__      /   |    |  ____    |
-// |       \    /       |    __     |     \   |    |     \  \  /  /     |   _______|    |   _______|     |  ____    |   |           |     /_   |    |__|  |    | 
-// |        \__/        |   |  |    |      \  |    |      \  \/  /      |  |_______     |  |_______      |__|   /   |   |_          |       |  |       ___|    | 
+// |       \    /       |    __     |     \   |    |     \  \  /  /     |   _______|    |   _______|     |  ____    |   |           |     /_   |    |__|  |    |
+// |        \__/        |   |  |    |      \  |    |      \  \/  /      |  |_______     |  |_______      |__|   /   |   |_          |       |  |       ___|    |
 // |     |\      /|     |   |  |    |   |\  \ |    |       |    |       |   _______|    |   _______|           /   /      |______   |       |  |     _|___     |
 // |     | \____/ |     |   |  |    |   | \  \|    |       |    |       |  |_______     |  |_______       ____/   /__            |  |    ___|  |__  |  |__|    |
-// |_____|        |_____|   |__|    |___|  \_______|       |____|       |__________|    |__________|     |___________|           |__|   |_________| |__________|  
+// |_____|        |_____|   |__|    |___|  \_______|       |____|       |__________|    |__________|     |___________|           |__|   |_________| |__________|
 //
 //
-import { PacketId, command, NetworkIdentifier, MinecraftPacketIds, RawTypeId, Actor, nethook, ServerPlayer } from "bdsx";
-import { BossEventPacket, ContainerOpenPacket, DisconnectPacket, ModalFormRequestPacket, RemoveObjectivePacket, SetDisplayObjectivePacket, SetHealthPacket, SetScorePacket, TextPacket, TransferPacket } from "bdsx/bds/packets";
+import { PacketId, command, NetworkIdentifier, createPacket, sendPacket, MinecraftPacketIds, RawTypeId, Actor, nethook, ServerPlayer } from "../bdsx";
+import { BossEventPacket, ContainerOpenPacket, DisconnectPacket, ModalFormRequestPacket, RemoveObjectivePacket, SetDisplayObjectivePacket, SetHealthPacket, SetScorePacket, ShowModalFormPacket, TextPacket, TransferPacket } from "../bdsx/bds/packets";
 import { red } from 'colors';
 import { open, readFileSync, writeFileSync } from "fs";
 const system = server.registerSystem(0,0);
@@ -19,7 +19,7 @@ let nIt = new Map();
 let nMt = new Map();
 let nXt = new Map();
 nethook.after(PacketId.Login).on((ptr, networkIdentifier) => {
-    const cert = ptr.connreq.cert;
+    const cert = ptr.connreq.cert
     const xuid = cert.getXuid();
     const username = cert.getId();
     nXt.set(username, xuid);
@@ -28,8 +28,8 @@ nethook.after(PacketId.Login).on((ptr, networkIdentifier) => {
 });
 nethook.after(PacketId.SetLocalPlayerAsInitialized).on((ptr, target) => {
     let actor = target.getActor();
-    let entity = actor!.getEntity();
-    let playerName = system.getComponent(entity, "minecraft:nameable")!.data.name;
+    let playerName:string;
+    playerName = NameById(target);
     setTimeout(()=>{
         if(!playerList.includes(playerName)) playerList.push(playerName);
     },100);
@@ -52,8 +52,15 @@ function XuidByName(PlayerName: string) {
   *get playerName by Id
 */
 function NameById(networkIdentifier: NetworkIdentifier) {
-    let Rlt:string = nMt.get(networkIdentifier);
-    return Rlt;
+    let actor = networkIdentifier.getActor();
+    let playerName:string;
+    try {
+        let entity = actor!.getEntity();
+        playerName = system.getComponent(entity, "minecraft:nameable")!.data.name;
+    } catch {
+        playerName = nMt.get(networkIdentifier);
+    }
+    return playerName;
 }
 /**
   *get playerData by Id
@@ -62,7 +69,7 @@ function NameById(networkIdentifier: NetworkIdentifier) {
 function DataById(networkIdentifier: NetworkIdentifier) {
     let actor = networkIdentifier.getActor();
     let entity = actor!.getEntity();
-    let name = system.getComponent(entity, "minecraft:nameable")!.data.name;
+    let name = actor!.getName();
     let xuid:any = nXt.get(name);
     return [name, actor, entity, xuid];
 }
@@ -85,10 +92,10 @@ let FormDataloader = new Map;
 */
 function Formsend(networkIdentifier: NetworkIdentifier, form: object, handler = (data: any) => {}) {
     try {
-        const modalPacket = ModalFormRequestPacket.create();
+        const modalPacket = ShowModalFormPacket.create();
         let formId = Math.floor(Math.random() * 2147483647) + 1;
-        modalPacket.setUint32(formId, 0x28);
-        modalPacket.setCxxString(JSON.stringify(form), 0x30);
+        modalPacket.setUint32(formId, 0x30);
+        modalPacket.setCxxString(JSON.stringify(form), 0x38);
         modalPacket.sendTo(networkIdentifier, 0);
         FormDataSaver.set(formId, handler);
         FormDataloader.set(networkIdentifier, formId);
@@ -113,8 +120,8 @@ nethook.raw(PacketId.ModalFormResponse).on((ptr, size, networkIdentifier) => {
 /////////////////////////////////////////
 //TEXT
 /**
- * 
- *Type Code : 
+ *
+ *Type Code :
  * Raw == 0,
  * Chat == 1,
  * Translation == 2,
@@ -129,7 +136,7 @@ nethook.raw(PacketId.ModalFormResponse).on((ptr, size, networkIdentifier) => {
 function sendText(networkIdentifier: NetworkIdentifier, text: string, type: number) {
     const Packet = TextPacket.create();
     Packet.message = text;
-    Packet.setUint32(type, 0x28);
+    Packet.setUint32(type, 0x30);
     Packet.sendTo(networkIdentifier, 0);
     Packet.dispose();
 }
@@ -150,7 +157,7 @@ function transferServer(networkIdentifier: NetworkIdentifier, address: string, p
 
 function setHealth(networkIdentifier: NetworkIdentifier, value: number) {
     const HealthPacket = SetHealthPacket.create();
-    HealthPacket.setInt32(value, 0x28);
+    HealthPacket.setInt32(value, 0x30);
     HealthPacket.sendTo(networkIdentifier, 0);
     HealthPacket.dispose();
 };
@@ -209,17 +216,17 @@ class scoreboard{
 
 	CreateSidebar(player:NetworkIdentifier, name:string, order:number) {
 		const pkt = SetDisplayObjectivePacket.create();
-		pkt.setCxxString("sidebar", 0x28);
-		pkt.setCxxString("2913:sidebar", 0x48);
-		pkt.setCxxString(name, 0x68)
-		pkt.setCxxString("dummy", 0x88);
-		pkt.setInt32(order, 0xA8);
+        pkt.displaySlot = "sidebar";
+        pkt.objectiveName = "2913:sidebar";
+        pkt.displayName = name;
+        pkt.criteriaName = "dummy";
+        pkt.sortOrder = order;
 		pkt.sendTo(player);
 		pkt.dispose();
 	}
 	destroySidebar(player:NetworkIdentifier){
 		const pkt = RemoveObjectivePacket.create();
-		pkt.setCxxString("2913:sidebar", 0x28);
+        pkt.objectiveName = "2913:sidebar";
 		pkt.sendTo(player);
 		pkt.dispose();
 	}
@@ -244,11 +251,11 @@ class scoreboard{
 	}
 	CreateList(player:NetworkIdentifier, name:string, order:number) {
 		const pkt = SetDisplayObjectivePacket.create();
-		pkt.setCxxString("list", 0x28);
-		pkt.setCxxString("2913:list", 0x48);
-		pkt.setCxxString(name, 0x68)
-		pkt.setCxxString("dummy", 0x88);
-		pkt.setInt32(order, 0xA8);
+		pkt.displaySlot = "list";
+        pkt.objectiveName = "2913:list";
+        pkt.displayName = name;
+        pkt.criteriaName = "dummy";
+        pkt.sortOrder = order;
 		pkt.sendTo(player);
 		pkt.dispose();
 	}
@@ -270,20 +277,28 @@ function Disconnect(networkidentifier: NetworkIdentifier, message: string) {
 //bossbar
 
 function setBossBar(target: NetworkIdentifier, title: string, healthPercent: number): void {
+    return;
     let pk = BossEventPacket.create();
     let uniqueId:any = target.getActor()?.getUniqueIdPointer().getBin64();
-    pk.setBin(uniqueId, 0x30);
-    pk.setUint32(0, 0x40);
-    pk.setCxxString(title, 0x48);
-    pk.setFloat32(healthPercent, 0x68);
+    pk.entityUniqueId = uniqueId;
+    pk.type = 0;
+    pk.title = title;
+    pk.healthPercent = healthPercent;
+    pk.unknown = "";
+    pk.unknown2 = "";
+    // pk.setBin(uniqueId, 0x40);
+    // pk.setUint32(0, 0x48);
+    // pk.setCxxString(title, 0x68);
+    // pk.setFloat32(healthPercent, 0xA8);
     pk.sendTo(target);
     pk.dispose();
 }
 
 function deleteBossBar(target: NetworkIdentifier): void {
+    return;
     let pk = BossEventPacket.create();
     let uniqueId:any = target.getActor()?.getUniqueIdPointer().getBin64();
-    pk.setBin(uniqueId, 0x30);
+    pk.setBin(uniqueId, 0x38);
     pk.setUint32(2, 0x40);
     pk.setCxxString("", 0x48);
     pk.setFloat32(0, 0x68);
@@ -311,7 +326,7 @@ function netCmd(handler = (ev:{command:string, networkIdentifier:NetworkIdentifi
 function numberFormat(x:any) {
     return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   }
-  
+
   function numberToKorean(number:number){
     var inputNumber:any  = number < 0 ? false : number;
     var unitWords    = ['', '만', '억', '조', '경'];
@@ -319,7 +334,7 @@ function numberFormat(x:any) {
     var splitCount   = unitWords.length;
     var resultArray  = [];
     var resultString = '';
-  
+
     for (var i = 0; i < splitCount; i++){
         let unitResult = (inputNumber % Math.pow(splitUnit, i + 1)) / Math.pow(splitUnit, i);
         unitResult = Math.floor(unitResult);
@@ -327,7 +342,7 @@ function numberFormat(x:any) {
             resultArray[i] = unitResult;
         }
     }
-  
+
     for (var i = 0; i < resultArray.length; i++){
         if(!resultArray[i]) continue;
         resultString = String(numberFormat(resultArray[i])) + unitWords[i] + resultString;
@@ -355,13 +370,13 @@ function ListenInvTransaction(handler = (ev: {sactiontype: number;sourceType: nu
             networkIdentifier: networkIdentifier,
             size: size
         }
-        console.log(`size : ${String(size)}\n\nsactiontype : ${String(sactiontype)}\nsourcetype : ${String(sourceType)}\nCraftingAction : ${String(CraftingAction)}\nReleaseAction : ${String(ReleaseAction)}\nUseAction : ${String(UseAction)}\nuseOnAction : ${String(useOnAction)}`)
+        //console.log(`size : ${String(size)}\n\nsactiontype : ${String(sactiontype)}\nsourcetype : ${String(sourceType)}\nCraftingAction : ${String(CraftingAction)}\nReleaseAction : ${String(ReleaseAction)}\nUseAction : ${String(UseAction)}\nuseOnAction : ${String(useOnAction)}`)
         return handler(ev);
     });
 }
 
 console.log(red('2913MODULE LOADED'));
-export { 
+export {
     Formsend,
     XuidByName,
     IdByName,
