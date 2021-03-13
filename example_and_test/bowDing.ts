@@ -4,7 +4,7 @@ system.listenForEvent("minecraft:entity_hurt", eventData => {
 		attacker,
 		entity,
 		cause
-	} = eventData
+	} = eventData.data
 	if (cause === "projectile") {
 		const attackerName = system.getComponent(attacker, MinecraftComponent.Nameable)!.data.name;
 		system.executeCommand(`execute "${attackerName}" ~ ~ ~ playsound random.orb @s ~ ~ ~ 1 0.5`, () => {});
@@ -12,4 +12,3 @@ system.listenForEvent("minecraft:entity_hurt", eventData => {
 })
 import { green } from 'colors';
 console.log(green('bowDing.ts loaded'));
-exports {}
