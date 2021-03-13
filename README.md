@@ -10,6 +10,7 @@ Script/Custom Module for [bdsx2](https://github.com/karikera/bdsx)
 -worldedit.ts
 -guild.ts
 -ban.ts
+-damageHandler.ts
 ```
 
 ## 2913Module
