@@ -23,64 +23,64 @@ NetworkIdentifier.close.on((ni)=>{
   }
 })
 
-ListenInvTransaction(ev => { //IT HAS BUGGGGGGGGGGG
-  if (!editors.has(ev.networkIdentifier)) {
-    let js = new editor();
-    editors.set(ev.networkIdentifier, js);
-  }
-  let tg = editors.get(ev.networkIdentifier)!;
+// ListenInvTransaction(ev => {
+//   if (!editors.has(ev.networkIdentifier)) {
+//     let js = new editor();
+//     editors.set(ev.networkIdentifier, js);
+//   }
+//   let tg = editors.get(ev.networkIdentifier)!;
 
 
-  //LEFT CLICK
-  clearTimeout(tg.Left);
-  tg.Left = setTimeout(()=>{
-    leftEnd(ev.networkIdentifier);
-  }, 500);
-  if ( tg.Leftclick == false && ev.sourceType == 0 && ev.CraftingAction == 1 && ev.ReleaseAction == 0 && ev.useOnAction == 0 && ev.UseAction == 0 && ev.sactiontype == 15) {
-    let [Name, actor, Entity, Xuid] = DataById(ev.networkIdentifier);
-    let hand = system.getComponent(Entity, "minecraft:hand_container")!.data[0];
-    if (hand.item == "minecraft:wooden_axe") {
-      let Perm = playerPermission(Name);
-      if (Perm == "operator") {
-        let pos = system.getComponent(Entity, "minecraft:position")!.data;
-        let p = new Pos();
-        p.x = Math.floor(pos.x);
-        p.y = Math.floor(pos.y);
-        p.z = Math.floor(pos.z);
-        system.executeCommand(`particle minecraft:dragon_destroy_block ${p.x} ${p.y} ${p.z}`, ()=>{});
-        sendText(ev.networkIdentifier, `§a§l두번째 지점은 (${p.x}, ${p.y}, ${p.z}) 입니다`, 0);
-        tg.Pos2 = p;
-      }
-    }
-    tg.Leftclick = true;
-  }
+//   //LEFT CLICK
+//   if ( tg.Leftclick == false && ev.CraftingAction == 1 && ev.ReleaseAction == 0 && ev.useOnAction == 0 && ev.UseAction == 0 && ev.sactiontype == 15) {
+//     let [Name, actor, Entity, Xuid] = DataById(ev.networkIdentifier);
+//     let hand = system.getComponent(Entity, "minecraft:hand_container")!.data[0];
+//     if (hand.item == "minecraft:wooden_axe") {
+//       let Perm = playerPermission(Name);
+//       if (Perm == "operator") {
+//         clearTimeout(tg.Left);
+//         tg.Left = setTimeout(()=>{
+//           leftEnd(ev.networkIdentifier);
+//         }, 500);
+//         let pos = system.getComponent(Entity, "minecraft:position")!.data;
+//         let p = new Pos();
+//         p.x = Math.floor(pos.x);
+//         p.y = Math.floor(pos.y);
+//         p.z = Math.floor(pos.z);
+//         system.executeCommand(`particle minecraft:dragon_destroy_block ${p.x} ${p.y} ${p.z}`, ()=>{});
+//         sendText(ev.networkIdentifier, `§a§l두번째 지점은 (${p.x}, ${p.y}, ${p.z}) 입니다`, 0);
+//         tg.Pos2 = p;
+//       }
+//     }
+//     tg.Leftclick = true;
+//   }
 
-  //RIGHT CLICK
-  clearTimeout(tg.Right);
-  tg.Right = setTimeout(()=>{
-    rightEnd(ev.networkIdentifier);
-  }, 500);
-  if ( tg.Rightclick == false && ev.sourceType == 0 && ev.CraftingAction == 1 && ev.ReleaseAction == 0 && ev.useOnAction == 1 && ev.UseAction == 0 && ev.sactiontype == 15) {
-    let [Name, actor, Entity, Xuid] = DataById(ev.networkIdentifier);
-    let hand = system.getComponent(Entity, "minecraft:hand_container")!.data[0];
-    if (hand.item == "minecraft:wooden_axe") {
-      let Perm = playerPermission(Name);
-      if (Perm == "operator") {
-        let pos = system.getComponent(Entity, "minecraft:position")!.data;
-        let p = new Pos();
-        p.x = Math.floor(pos.x);
-        p.y = Math.floor(pos.y);
-        p.z = Math.floor(pos.z);
-        system.executeCommand(`particle minecraft:dragon_destroy_block ${p.x} ${p.y} ${p.z}`, ()=>{});
-        sendText(ev.networkIdentifier, `§a§l첫번째 지점은 (${p.x}, ${p.y}, ${p.z}) 입니다`, 0);
-        tg.Pos1 = p;
-      }
-    }
-    tg.Rightclick = true;
-  }
-
-  editors.set(ev.networkIdentifier, tg);
-});
+//   //RIGHT CLICK
+//   if ( tg.Rightclick == false && ev.CraftingAction == 1 && ev.ReleaseAction == 0 && ev.useOnAction == 1 && ev.UseAction == 0 && ev.sactiontype == 15) {
+//     let [Name, actor, Entity, Xuid] = DataById(ev.networkIdentifier);
+//     let hand = system.getComponent(Entity, "minecraft:hand_container")!.data[0];
+//     if (hand.item == "minecraft:wooden_axe") {
+//       let Perm = playerPermission(Name);
+//       if (Perm == "operator") {
+//         clearTimeout(tg.Right);
+//         tg.Right = setTimeout(()=>{
+//           rightEnd(ev.networkIdentifier);
+//         }, 500);
+//         let pos = system.getComponent(Entity, "minecraft:position")!.data;
+//         let p = new Pos();
+//         p.x = Math.floor(pos.x);
+//         p.y = Math.floor(pos.y);
+//         p.z = Math.floor(pos.z);
+//         system.executeCommand(`particle minecraft:dragon_destroy_block ${p.x} ${p.y} ${p.z}`, ()=>{});
+//         sendText(ev.networkIdentifier, `§a§l첫번째 지점은 (${p.x}, ${p.y}, ${p.z}) 입니다`, 0);
+//         tg.Pos1 = p;
+//       }
+//     }
+//     tg.Rightclick = true;
+//   }
+//
+//   editors.set(ev.networkIdentifier, tg);
+// });
 function leftEnd(target:NetworkIdentifier){
   let tg = editors.get(target)!;
   tg.Leftclick = false;
@@ -93,11 +93,38 @@ function rightEnd(target:NetworkIdentifier){
 }
 
 netCmd(async ev => {
-  if (ev.command == "//set" && playerPermission(ev.originName) == "operator") {
-    sendText(ev.networkIdentifier, "§c§l//set <블럭>:<data>", 0);
+  if (playerPermission(ev.originName) != "operator") return;
+  if (ev.command == "//pos1") {
+    let tg = editors.get(ev.networkIdentifier)!;
+    let pos = system.getComponent(ev.originEntity, "minecraft:position")!.data;
+    let p = new Pos();
+    p.x = Math.floor(pos.x);
+    p.y = Math.floor(pos.y);
+    p.z = Math.floor(pos.z);
+    system.executeCommand(`particle minecraft:dragon_destroy_block ${p.x} ${p.y} ${p.z}`, ()=>{});
+    sendText(ev.networkIdentifier, `§a§l첫번째 지점은 (${p.x}, ${p.y}, ${p.z}) 입니다`, 0);
+    tg.Pos1 = p;
+    editors.set(ev.networkIdentifier, tg);
     return CANCEL;
   }
-  if (ev.command.startsWith("//set ") && playerPermission(ev.originName) == "operator") {
+  if (ev.command == "//pos2") {
+    let tg = editors.get(ev.networkIdentifier)!;
+    let pos = system.getComponent(ev.originEntity, "minecraft:position")!.data;
+    let p = new Pos();
+    p.x = Math.floor(pos.x);
+    p.y = Math.floor(pos.y);
+    p.z = Math.floor(pos.z);
+    system.executeCommand(`particle minecraft:dragon_destroy_block ${p.x} ${p.y} ${p.z}`, ()=>{});
+    sendText(ev.networkIdentifier, `§a§l두번째 지점은 (${p.x}, ${p.y}, ${p.z}) 입니다`, 0);
+    tg.Pos2 = p;
+    editors.set(ev.networkIdentifier, tg);
+    return CANCEL;
+  }
+  if (ev.command == "//set") {
+    sendText(ev.networkIdentifier, "§c§l//set <블럭>|<data>", 0);
+    return CANCEL;
+  }
+  if (ev.command.startsWith("//set ")) {
     if (!editors.has(ev.networkIdentifier)) {
       sendText(ev.networkIdentifier, "§c§l구역을 먼저 지정하세요!", 0);
       return CANCEL;
@@ -105,8 +132,8 @@ netCmd(async ev => {
       let cmd = ev.command.replace("//set ", "");
       let block:string;
       let data:number;
-      if (cmd.includes(":")) {
-        let oo = cmd.split(":");
+      if (cmd.includes("|")) {
+        let oo = cmd.split("|");
         block = oo[0];
         data = Number(oo[1]);
       } else {
@@ -117,9 +144,33 @@ netCmd(async ev => {
       return CANCEL;
     }
   }
+  if (ev.command == "//fill") {
+    sendText(ev.networkIdentifier, "§c§l//fill <블럭>|<data>", 0);
+    return CANCEL;
+  }
+  if (ev.command.startsWith("//fill ")) {
+    if (!editors.has(ev.networkIdentifier)) {
+      sendText(ev.networkIdentifier, "§c§l구역을 먼저 지정하세요!", 0);
+      return CANCEL;
+    } else {
+      let cmd = ev.command.replace("//fill ", "");
+      let block:string;
+      let data:number;
+      if (cmd.includes("|")) {
+        let oo = cmd.split("|");
+        block = oo[0];
+        data = Number(oo[1]);
+      } else {
+        block = cmd;
+        data = 0;
+      }
+      let tg = editors.get(ev.networkIdentifier)!;
+      system.executeCommand(`fill ${tg.Pos1.x} ${tg.Pos1.y} ${tg.Pos1.z} ${tg.Pos2.x} ${tg.Pos2.y} ${tg.Pos2.z} ${block} ${data}`,()=>{});
+      return CANCEL;
+    }
+  }
 
-
-  if (ev.command == "//cut" && playerPermission(ev.originName) == "operator") {
+  if (ev.command == "//cut") {
     if (!editors.has(ev.networkIdentifier)) {
       sendText(ev.networkIdentifier, "§c§l구역을 먼저 지정하세요!", 0);
       return CANCEL;
@@ -130,7 +181,7 @@ netCmd(async ev => {
   }
 
 
-  if (ev.command.startsWith("//up ") && playerPermission(ev.originName) == "operator") {
+  if (ev.command.startsWith("//up ")) {
     let value = ev.command.replace("//up ", "");
     system.executeCommand(`execute @a[name="${ev.originName}"] ~ ~ ~ setblock ~ ~${value} ~ glass`, () => { });
     system.executeCommand(`execute @a[name="${ev.originName}"] ~ ~ ~ tp @s ~ ~${value} ~`, () => { });
@@ -140,11 +191,11 @@ netCmd(async ev => {
   }
 
 
-  if (ev.command == "//replace" && playerPermission(ev.originName) == "operator") {
-    sendText(ev.networkIdentifier, "§c§l//replace <블럭>:<data> <대상블럭>", 0);
+  if (ev.command == "//replace") {
+    sendText(ev.networkIdentifier, "§c§l//replace <블럭>|<data> <대상블럭>", 0);
     return CANCEL;
   }
-  if (ev.command.startsWith("//replace ") && playerPermission(ev.originName) == "operator") {
+  if (ev.command.startsWith("//replace ")) {
     if (!editors.has(ev.networkIdentifier)) {
       sendText(ev.networkIdentifier, "§c§l구역을 먼저 지정하세요!", 0);
       return CANCEL;
@@ -152,8 +203,8 @@ netCmd(async ev => {
       let cmd = ev.command.replace("//replace ", "").split(" ");
       let block:string;
       let data:number;
-      if (cmd.includes(":")) {
-        let oo = cmd[0].split(":");
+      if (cmd.includes("|")) {
+        let oo = cmd[0].split("|");
         block = oo[0];
         data = Number(oo[1]);
       } else {
@@ -167,11 +218,11 @@ netCmd(async ev => {
   }
 
 
-  if (ev.command == "//destroy" && playerPermission(ev.originName) == "operator") {
-    sendText(ev.networkIdentifier, "§c§l//destroy <블럭>:<data>", 0);
+  if (ev.command == "//destroy") {
+    sendText(ev.networkIdentifier, "§c§l//destroy <블럭>|<data>", 0);
     return CANCEL;
   }
-  if (ev.command.startsWith("//destroy ") && playerPermission(ev.originName) == "operator") {
+  if (ev.command.startsWith("//destroy ")) {
     if (!editors.has(ev.networkIdentifier)) {
       sendText(ev.networkIdentifier, "§c§l구역을 먼저 지정하세요!", 0);
       return CANCEL;
@@ -179,8 +230,8 @@ netCmd(async ev => {
       let cmd = ev.command.replace("//destroy ", "");
       let block:string;
       let data:number;
-      if (cmd.includes(":")) {
-        let oo = cmd.split(":");
+      if (cmd.includes("|")) {
+        let oo = cmd.split("|");
         block = oo[0];
         data = Number(oo[1]);
       } else {
@@ -191,11 +242,11 @@ netCmd(async ev => {
       return CANCEL;
     }
   }
-  if (ev.command == "//keep" && playerPermission(ev.originName) == "operator") {
-    sendText(ev.networkIdentifier, "§c§l//keep <블럭>:<data>", 0);
+  if (ev.command == "//keep") {
+    sendText(ev.networkIdentifier, "§c§l//keep <블럭>|<data>", 0);
     return CANCEL;
   }
-  if (ev.command.startsWith("//keep ") && playerPermission(ev.originName) == "operator") {
+  if (ev.command.startsWith("//keep ")) {
     if (!editors.has(ev.networkIdentifier)) {
       sendText(ev.networkIdentifier, "§c§l구역을 먼저 지정하세요!", 0);
       return CANCEL;
@@ -203,8 +254,8 @@ netCmd(async ev => {
       let cmd = ev.command.replace("//keep ", "");
       let block:string;
       let data:number;
-      if (cmd.includes(":")) {
-        let oo = cmd.split(":");
+      if (cmd.includes("|")) {
+        let oo = cmd.split("|");
         block = oo[0];
         data = Number(oo[1]);
       } else {
