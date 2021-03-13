@@ -1,13 +1,12 @@
 const system = server.registerSystem(0, 0);
 system.listenForEvent("minecraft:entity_hurt", eventData => {
-	const { 
-		attacker,
-		entity,
-		cause
-	} = eventData.data
+	let attacker = eventData.data.attacker;
+	let cause = eventData.data.cause;
 	if (cause === "projectile") {
-		const attackerName = system.getComponent(attacker, MinecraftComponent.Nameable)!.data.name;
-		system.executeCommand(`execute "${attackerName}" ~ ~ ~ playsound random.orb @s ~ ~ ~ 1 0.5`, () => {});
+		try {
+			const attackerName = system.getComponent(attacker, "minecraft:nameable")!.data.name;
+			system.executeCommand(`execute "${attackerName}" ~ ~ ~ playsound random.orb @s ~ ~ ~ 1 0.5`, () => {});
+		} catch { return }
 	}
 })
 import { green } from 'colors';
