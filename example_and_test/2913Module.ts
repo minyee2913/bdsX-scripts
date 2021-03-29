@@ -12,6 +12,7 @@ import { PacketId, command, NetworkIdentifier, createPacket, sendPacket, Minecra
 import { BossEventPacket, ContainerOpenPacket, DisconnectPacket, ModalFormRequestPacket, RemoveObjectivePacket, SetDisplayObjectivePacket, SetHealthPacket, SetScorePacket, ShowModalFormPacket, TextPacket, TransferPacket } from "bdsx/bds/packets";
 import { red } from 'colors';
 import { open, readFileSync, writeFileSync } from "fs";
+import { create } from "ts-node";
 const system = server.registerSystem(0,0);
 
 let playerList:string[] = [];
@@ -87,12 +88,125 @@ function IdByName(PlayerName: string) {
 /////////////////////////////////////////
 //JSform
 
+
 let FormData = new Map<NetworkIdentifier, {Id:number;func:(data:any)=>void}[]>();
+class formJSONTYPE {
+    type:"form"|"custom_form"|"modal";
+    title:string;
+    content:string|any[];
+    buttons?:{text:string; image?:any}[];
+    button1?:string;
+    button2?:string;
+}
+
+class formJSON {
+    type:"form";
+    title:string;
+    content:string;
+    buttons?:{text:string; image?:any}[];
+}
+
+class CustomformJSON {
+    type:"custom_form";
+    title:string;
+    content:any[];
+}
+
+class modalJSON {
+    type:"modal";
+    title:string;
+    content:string;
+    button1?:string;
+    button2?:string;
+}
+
+class FormFile {
+    json: formJSON;
+    handler?: (data: any) => void;
+    target: NetworkIdentifier;
+    setTitle(title:string) {
+        this.json.title = title;
+    }
+    setContent(content:string) {
+        this.json.content = content;
+    }
+    addButton(text:string, image?:object) {
+        this.json.buttons?.push({
+            text: text,
+            image: image
+        });
+    }
+    addhandler(handler?:(data:number)=>void){
+        this.handler = handler;
+    }
+    send(){
+        Formsend(this.target, this.json, this.handler);
+    }
+
+}
+class CustomFormFile {
+    json: CustomformJSON;
+    handler?: (data: any) => void;
+    target: NetworkIdentifier;
+    setTitle(title:string) {
+        this.json.title = title;
+    }
+    addContent(content:object[]) {
+        this.json.content = content;
+    }
+    addhandler(handler?:(data:any)=>void){
+        this.handler = handler;
+    }
+    send(){
+        Formsend(this.target, this.json, this.handler);
+    }
+
+}
+
+class ModalFile {
+    json: modalJSON;
+    handler?: (data: any) => void;
+    target: NetworkIdentifier;
+    setTitle(title:string) {
+        this.json.title = title;
+    }
+    setContent(content:string) {
+        this.json.content = content;
+    }
+    setButton1(button:string) {
+        this.json.button1 = button;
+    }
+    setButton2(button:string) {
+        this.json.button2 = button;
+    }
+    addhandler(handler?:(data:boolean)=>void){
+        this.handler = handler;
+    }
+    send(){
+        Formsend(this.target, this.json, this.handler);
+    }
+
+}
+namespace form {
+    export function create(target:NetworkIdentifier, type?:"form"|"custom_form"|"modal"):FormFile{
+        let form:any;
+        if (type == "form" || type == undefined) {
+            form = new FormFile();
+        } else if (type == "custom_form") {
+            form = new CustomFormFile();
+        } else if (type == "modal") {
+            form = new ModalFile();
+        }
+        form.target = target;
+        return form;
+    }
+    export const write = Formsend;
+}
 
 /**
-  *JsonType example : https://github.com/NLOGPlugins/Form_Json
+  *JsonType example : https://github.com/NLOGPlugins/Form_Json You can use form.write instead of this
 */
-function Formsend(target: NetworkIdentifier, form: object, handler?: (data: any) => void, id?:number) {
+function Formsend(target: NetworkIdentifier, form: formJSONTYPE, handler?: (data: any) => void, id?:number) {
     try {
         const modalPacket = ShowModalFormPacket.create();
         let formId = Math.floor(Math.random() * 1147483647) + 1000000000;
@@ -423,5 +537,6 @@ export {
     netCmd,
     numberToKorean,
     numberFormat,
-    ListenInvTransaction
+    ListenInvTransaction,
+    form
 };
