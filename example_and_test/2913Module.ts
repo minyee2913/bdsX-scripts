@@ -35,11 +35,14 @@ nethook.after(PacketId.SetLocalPlayerAsInitialized).on((ptr, target) => {
     },100);
 });
 NetworkIdentifier.close.on(networkIdentifier => {
-    const id = nMt.get(networkIdentifier);
-    if (playerList.includes(id)) playerList.splice(playerList.indexOf(id),1);
-    nXt.delete(id);
-    nMt.delete(networkIdentifier);
-    nIt.delete(id);
+    setTimeout(()=>{
+        const id = nMt.get(networkIdentifier);
+        if (playerList.includes(id)) playerList.splice(playerList.indexOf(id),1);
+        nXt.delete(id);
+        nMt.delete(networkIdentifier);
+        nIt.delete(id);
+        FormData.delete(networkIdentifier);
+    }, 100);
 });
 /**
   *get playerXuid by Name
@@ -84,42 +87,55 @@ function IdByName(PlayerName: string) {
 /////////////////////////////////////////
 //JSform
 
-let FormDataSaver = new Map;
-let FormDataloader = new Map;
+let FormData = new Map<NetworkIdentifier, {Id:number;func:(data:any)=>void}[]>();
 
 /**
   *JsonType example : https://github.com/NLOGPlugins/Form_Json
 */
-function Formsend(networkIdentifier: NetworkIdentifier, form: object, handler = (data: any) => {}) {
+function Formsend(target: NetworkIdentifier, form: object, handler?: (data: any) => void, id?:number) {
     try {
         const modalPacket = ShowModalFormPacket.create();
-        let formId = Math.floor(Math.random() * 2147483647) + 1;
+        let formId = Math.floor(Math.random() * 1147483647) + 1000000000;
+        if (typeof id == "number") formId = id;
         modalPacket.setUint32(formId, 0x30);
         modalPacket.setCxxString(JSON.stringify(form), 0x38);
-        modalPacket.sendTo(networkIdentifier, 0);
-        FormDataSaver.set(formId, handler);
-        FormDataloader.set(networkIdentifier, formId);
+        modalPacket.sendTo(target, 0);
+        if (handler == undefined) handler = ()=>{}
+        if (!FormData.has(target)) {
+            FormData.set(target, [
+                {
+                    Id: formId,
+                    func: handler
+                }
+            ])
+        } else {
+            let f = FormData.get(target)!;
+            f.push({
+                Id: formId,
+                func: handler
+            })
+            FormData.set(target, f);
+        }
         modalPacket.dispose();
     } catch (err) {}
 }
-nethook.raw(PacketId.ModalFormResponse).on((ptr, size, networkIdentifier) => {
-    let datas: {[key: string]: any} = {};
+nethook.raw(PacketId.ModalFormResponse).on((ptr, size, target) => {
     ptr.move(1);
-    datas.formId = ptr.readVarUint();
-    datas.formData = ptr.readVarString();
-    let dataValue = FormDataloader.get(networkIdentifier);
-    if (datas.formId == dataValue) {
-        let dataResult = FormDataSaver.get(dataValue);
-        var data = JSON.parse(datas.formData.replace("\n",""));
-        FormDataSaver.delete(dataValue);
-        FormDataloader.delete(networkIdentifier);
-        dataResult(data);
-    }
+    let formId = ptr.readVarUint();
+    let formData = ptr.readVarString();
+    let dataValue = FormData.get(target)!.find((v)=> v.Id == formId)!;
+    let data = JSON.parse(formData.replace("\n",""));
+    if (dataValue == undefined) return;
+    dataValue.func(data);
+    let f = FormData.get(target)!;
+    f.splice(f.indexOf(dataValue), 1);
+    FormData.set(target, f);
 });
 
 /////////////////////////////////////////
 //TEXT
 /**
+ * NAME or NETWORKIDENTIFIER
  *
  *Type Code :
  * Raw == 0,
@@ -133,11 +149,17 @@ nethook.raw(PacketId.ModalFormResponse).on((ptr, size, networkIdentifier) => {
  * Announcement == 8,
  * Json == 9,
 */
-function sendText(networkIdentifier: NetworkIdentifier, text: string, type: number) {
+function sendText(target: NetworkIdentifier|string, text: string, type?: number) {
+    let networkIdentifier:NetworkIdentifier;
+    if (target instanceof NetworkIdentifier) networkIdentifier = target;
+    else {
+        networkIdentifier = IdByName(target);
+    }
+    if ( type == undefined || typeof type != "number") type = 0;
     const Packet = TextPacket.create();
     Packet.message = text;
     Packet.setUint32(type, 0x30);
-    Packet.sendTo(networkIdentifier, 0);
+    Packet.sendTo(networkIdentifier!, 0);
     Packet.dispose();
 }
 
@@ -256,6 +278,12 @@ class scoreboard{
         pkt.displayName = name;
         pkt.criteriaName = "dummy";
         pkt.sortOrder = order;
+		pkt.sendTo(player);
+		pkt.dispose();
+	}
+    destroyList(player:NetworkIdentifier){
+		const pkt = RemoveObjectivePacket.create();
+        pkt.objectiveName = "2913:list";
 		pkt.sendTo(player);
 		pkt.dispose();
 	}
