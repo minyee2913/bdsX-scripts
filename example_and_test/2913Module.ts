@@ -8,8 +8,8 @@
 // |_____|        |_____|   |__|    |___|  \_______|       |____|       |__________|    |__________|     |___________|           |__|   |_________| |__________|
 //
 //
-import { PacketId, command, NetworkIdentifier, createPacket, sendPacket, MinecraftPacketIds, RawTypeId, Actor, nethook, ServerPlayer } from "../bdsx";
-import { BossEventPacket, ContainerOpenPacket, DisconnectPacket, ModalFormRequestPacket, RemoveObjectivePacket, SetDisplayObjectivePacket, SetHealthPacket, SetScorePacket, ShowModalFormPacket, TextPacket, TransferPacket } from "../bdsx/bds/packets";
+import { PacketId, command, NetworkIdentifier, createPacket, sendPacket, MinecraftPacketIds, RawTypeId, Actor, nethook, ServerPlayer } from "bdsx";
+import { BossEventPacket, ContainerOpenPacket, DisconnectPacket, ModalFormRequestPacket, RemoveObjectivePacket, SetDisplayObjectivePacket, SetHealthPacket, SetScorePacket, ShowModalFormPacket, TextPacket, TransferPacket } from "bdsx/bds/packets";
 import { red } from 'colors';
 import { open, readFileSync, writeFileSync } from "fs";
 const system = server.registerSystem(0,0);
