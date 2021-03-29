@@ -1,7 +1,10 @@
-import { Actor, CANCEL, command, MinecraftPacketIds, netevent, NetworkIdentifier } from "bdsx";
+import { Actor, CANCEL, command, MinecraftPacketIds, netevent, nethook, NetworkIdentifier, PacketId } from "bdsx";
 import { bedrockServer } from "bdsx/launcher";
 import { open, readFile, readFileSync, writeFileSync } from "fs";
 import { Formsend, IdByName, NameById, sendText, DataById, playerList, XuidByName } from "./2913Module";
+import { CommandPermissionLevel } from "bdsx/bds/command";
+import { green } from 'colors';
+import { CxxString } from "bdsx/nativetype";
 
 const system = server.registerSystem(0, 0);
 
@@ -22,13 +25,21 @@ let dummyPl = [{
     guildID: 0,
     perm: ''
 }]
-let localfile = "data/Guild/guilds.json";
-let localfilePlayer = "data/Guild/player.json";
+let localfile = "guilds.json";
+let localfilePlayer = "GuildPlayer.json";
 
-export let guildJs:any[] = [];
-export let dataJs:any[] = [];
+let guildJs:any[] = [];
+let dataJs:any[] = [];
 let inviteJs:any[] = [];
 
+let cooldown = new Map<string, number>();
+let c = setInterval(()=>{
+    cooldown.forEach((v, k)=>{
+        v -= 1
+        if (v > 0) cooldown.set(k, v);
+        if (v <= 0) cooldown.delete(k);
+    });
+}, 1000);
 open(localfile,'a+',function(err:any,fd:any){
     if(err) throw err;
     try {
@@ -47,26 +58,74 @@ open(localfilePlayer,'a+',function(err:any,fd:any){
     }
     dataJs = JSON.parse(readFileSync(localfilePlayer, "utf8"));
 });
-netevent.before(MinecraftPacketIds.CommandRequest).on((ev, networkIdentifier) => {
-    if (ev.command == '/guild') {
-        Nready(networkIdentifier);
-        return CANCEL;
-    };
-    if (ev.command == '/guild invite') {
-        Ginvlist(networkIdentifier);
-        return CANCEL;
-    };
+command.register("guild", "길드창을 엽니다", CommandPermissionLevel.Normal).overload((p,origin)=>{
+    let target = IdByName(origin.getName());
+    Nready(target);
+},{});
+command.register("길드", "길드창을 엽니다", CommandPermissionLevel.Normal).overload((p,origin)=>{
+    let target = IdByName(origin.getName());
+    Nready(target);
+},{});
+command.register("guild invite", "길드 초대장을 봅니다", CommandPermissionLevel.Normal).overload((p,origin)=>{
+    let target = IdByName(origin.getName());
+    Ginvlist(target);
+},{});
+command.register("g", "길드채팅을 보냅니다", CommandPermissionLevel.Normal).overload((p,origin)=>{
+    let today = new Date();
+    let hours = today.getHours();
+    let minutes = today.getMinutes();
+    let seconds = today.getSeconds();
+    let today2 = `${hours}:${minutes}:${seconds}`;
+    let write = `${today2} [GUILD] ${origin.getName()} : ${p.text}\n`;
+    if (!cooldown.has(origin.getName())) {
+        let f = dataJs.find((v)=> v.Name == origin.getName());
+        if (f == undefined) {
+            sendText(origin.getName(), "§c§l길드가 없습니다", 0);
+            return;
+        }
+        let members = dataJs.filter((v)=> v.guildID == f.guildID)
+        if (members.length <= 0) return;
+        members.forEach((v)=>{
+            system.executeCommand(`tellraw @a[c=1,name="${v.Name}"] {"rawtext":[{"text":"\n§l§a[GUILD] ${origin.getName()} §f: ${p.text.replace(/§/gi, '§6[$]§r§7').replace(/시발|세끼|새끼|병신|ㅅㅂ|또라이|성불구자|고자|애미|좆/gi, '§c[필터링]§r')}\n"}]}`,()=>{});
+        });
+        console.log(green(write));
+        cooldown.set(origin.getName(), 3);
+    } else {
+        sendText(origin.getName(), `§c§l${cooldown.get(origin.getName())}초 후에 채팅을 칠 수 있습니다`, 0);
+    }
+},{
+    text:CxxString
 });
+
 system.listenForEvent('minecraft:entity_use_item', eventData => {
     if (eventData.data.entity.__identifier__ === 'minecraft:player' && eventData.data.item_stack.item === 'play:guild') {
-      let target:any = Actor.fromEntity(eventData.data.entity)?.getNetworkIdentifier();
-      Nready(target);
+        system.executeCommand(`function hotbar`,()=>{});
+        let playerName = system.getComponent(eventData.data.entity, "minecraft:nameable")!.data.name;
+        let target:NetworkIdentifier;
+        try {
+          target = Actor.fromEntity(eventData.data.entity)!.getNetworkIdentifier();
+        } catch {
+          target = IdByName(playerName);
+        }
+        Nready(target);
     }
 });
 
-export function Nready(target:NetworkIdentifier) {
-    let gjs = dataJs.map((e:any) => e.Name);
+function Nready(target:NetworkIdentifier) {
     let playerName = DataById(target)[0];
+    let sch_ = dataJs.find((v)=> v.Name == playerName);
+    if (sch_ != undefined) {
+        let sch = dataJs.find((v)=> v.guildID == sch_.guildID);
+        if (sch == undefined) {
+            let targetj = dataJs.find((e:any) => e.Name == playerName);
+            if (targetj == undefined) return;
+            let state = dataJs.indexOf(targetj);
+            dataJs.splice(state ,1);
+            sendText(target, "§c§l길드 데이터에 문제가 생겼습니다 내 데이터를 초기화합니다", 0);
+            return;
+        }
+    }
+    let gjs = dataJs.map((e:any) => e.Name);
     if (gjs.includes(`$${playerName}`) == true) {
         let data = dataJs.filter((e:any) => e.Name == `$${playerName}`)[0];
         if (data.perm == 'break') {
@@ -75,7 +134,7 @@ export function Nready(target:NetworkIdentifier) {
                 title:"길드",
                 content: [
                     {
-                        "type": "label", 
+                        "type": "label",
                         "text": "§c§l길드가 해산되었습니다!"
                     }
                 ]
@@ -106,6 +165,19 @@ export function Nready(target:NetworkIdentifier) {
         }
     };
 }
+nethook.after(PacketId.Login).on((ptr, networkIdentifier)=>{
+    const cert = ptr.connreq.cert;
+    const xuid = cert.getXuid();
+    const username = cert.getId();
+    let gjs = dataJs.map((e:any) => e.xuid);
+    if (gjs.includes(xuid)) {
+        let data = dataJs.find((e:any) => e.xuid == xuid);
+        let state = dataJs.indexOf(data);
+        if (data.guildID != "") data.Name = username;
+        if (data.guildID == "") data.Name = "$" + username;
+        dataJs.splice(state, 1, data);
+    }
+});
 function Nmain(target:NetworkIdentifier) {
     Formsend(target, {
         type: "form",
@@ -186,7 +258,8 @@ function Nmain2S(target:NetworkIdentifier) {
         if (data == 0) rank(target);
         if (data == 1) memberlist(target, Id);
         if (data == 2) Gkick(target, Id);
-        if (data == 3) Gout(target, Id);
+        if (data == 3) Ginvite(target, Id);
+        if (data == 4) Gout(target, Id);
     });
 };
 function Nmain2L(target:NetworkIdentifier) {
@@ -259,7 +332,7 @@ function leaderCmd(target:NetworkIdentifier, Id:any) {
     })
 }
 
-function rank(target:NetworkIdentifier) {
+function rank(target:NetworkIdentifier, what?:number) {
     let array:any[] = [];
     var sortingField1 = "xp";
     var sortingField2 = "level";
@@ -270,10 +343,11 @@ function rank(target:NetworkIdentifier) {
     rankJs.forEach(function(element:any, index:any, arr:any){
         let numc = 'th'
         data = dataJs.filter((e:any) => e.xuid == element.guildID)[0];
+        let member = dataJs.filter((e:any) => e.guildID == element.guildID);
         if (String(index + 1)[String(index + 1).length - 1] == '1') numc = 'st';
         if (String(index + 1)[String(index + 1).length - 1] == '2') numc = 'nd';
         if (String(index + 1)[String(index + 1).length - 1] == '3') numc = 'rd';
-        let s = `§l\n${index + 1}${numc}. §6${element.Name} §7- ${data.Name}\n§8${element.o} | ${element.level}레벨 ( ${element.xp} / ${element.xpM} )\n\n§f---------------------------------`;
+        let s = `§l\n${index + 1}${numc}. §6${element.Name} §7( ${member.length} / ${element.PMC} ) §7- ${data.Name}\n§8${element.o} | ${element.level}레벨 ( ${element.xp} / ${element.xpM} )\n\n§f---------------------------------`;
         array.push(s);
     });
     Formsend(target, {
@@ -281,8 +355,9 @@ function rank(target:NetworkIdentifier) {
         title: "길드 랭킹",
         content: String(array).replace(/,/gi, '\n'),
         buttons: []
-    }, () => {
-        Nready(target);
+    }, ()=>{
+        if (what! == 1) system.executeCommand(`execute "${NameById(target)}" ~ ~ ~ rank`,()=>{});
+        else Nready(target);
     })
 }
 
@@ -443,14 +518,16 @@ function Gkick(target:NetworkIdentifier, Id:any) {
 
 function Ginvite(target:NetworkIdentifier, Id:any) {
     let guild = guildJs.filter((e:any, i:any) => e.guildID == Id)[0];
-    let memberA = dataJs.map((e:any, i:any) => e.Name);
     let Arr = ['플레이어를 선택하세요'];
-    playerList.forEach(function(ele:string){
+    playerList.forEach(function(ele){
         Arr.push(ele);
     });
-    memberA.forEach(function(ele:string){
-        Arr.splice(Arr.indexOf(ele), 1);
+    dataJs.forEach(function(ele){
+        let state = Arr.indexOf(ele.Name);
+        if (state <= 0) return;
+        Arr.splice(state, 1);
     });
+    console.log(Arr);
     Formsend(target, {
         type: "custom_form",
         title: "길드원 초대",
@@ -499,6 +576,7 @@ function Ginvlist(target:NetworkIdentifier) {
         content: "받은 길드 초대장이 모두 표시됩니다",
         buttons: Arr
     }, data => {
+        if (data == null) return;
         let selects = Arr[data];
         let select = guildJs.filter((e:any) => e.guildID == selects.value.Id)[0];
         let dt = dataJs.filter((e:any) => e.xuid == selects.value.Id)[0];
@@ -552,6 +630,7 @@ function Gout(target:NetworkIdentifier, Id:any) {
             }
         ]
     }, data => {
+        if (data == null) return;
         let targetj = dataJs.filter((e:any) => e.Name == playerName)[0];
         let state = dataJs.indexOf(targetj);
         dataJs.splice(state,1);
@@ -572,6 +651,7 @@ function Gsubtitle(target:NetworkIdentifier, Id:any) {
             }
         ]
     }, data => {
+        if (data == null) return;
         let guild = guildJs.filter((e:any) => e.guildID == Id)[0];
         guild.subtitle = data[0];
         let state = guildJs.indexOf(guild);
@@ -593,6 +673,7 @@ function Gosttt(target:NetworkIdentifier, Id:any) {
             }
         ]
     }, data => {
+        if (data == null) return;
         let osttt = drop[data];
         let guild = guildJs.filter((e:any) => e.guildID == Id)[0];
         guild.o = osttt;
@@ -614,7 +695,7 @@ function memberlist(target:NetworkIdentifier, Id:any) {
         content: [
             {
                 "type": "label",
-                "text": `\n§6§l----길드장----\n§f${String(leader)}\n\n§6§l----하위 리더----\n§f${String(subleader)}\n\n§6§l----맴버----\n§f${String(member)}`
+                "text": `§l총 길드원: ${members.length}/${guild.PMC}\n§6§l----길드장----\n§f${String(leader)}\n\n§6§l----하위 리더----\n§f${String(subleader)}\n\n§6§l----맴버----\n§f${String(member).replace(/,/gi, '\n')}`
             }
         ]
     }, ()=> {
@@ -661,7 +742,7 @@ function search(target:NetworkIdentifier) {
         let [input,] = data;
         if (input == '') search(target);
         if (input != '') searchRs(target, input);
-        
+
     });
 }
 function searchRs(target:NetworkIdentifier, input: string) {
@@ -752,13 +833,13 @@ function searchRs(target:NetworkIdentifier, input: string) {
     });
 }
 
-function regExp(str:string){  
+function regExp(str:string){
     let reg = /[^가-힣ㄱ-ㅎㅏ-ㅣa-zA-Z0-9]/gi
     if(reg.test(str)){
-      return str.replace(reg, "");    
+      return str.replace(reg, "");
     } else {
       return str;
-    }  
+    }
 }
 
 function make(target: NetworkIdentifier) {
@@ -843,23 +924,20 @@ function make(target: NetworkIdentifier) {
 
 system.listenForEvent("minecraft:entity_death", eventData => {
     // @ts-ignore
-    if (eventData.data.cause == 'entity_attack') {
-        // @ts-ignore
-        if(eventData.data.killer.__identifier__ == 'minecraft:player') {
+    try {
+        if (eventData.data.killer.__identifier__ == 'minecraft:player') {
             // @ts-ignore
-            let killerName = system.getComponent(eventData.data.killer, MinecraftComponent.Nameable)!.data.name;
-            let entityHealth = system.getComponent(eventData.data.entity, MinecraftComponent.Health)!.data.max;
-            let djs = dataJs.map((e:any, i:any) => e.Name);
-            if (djs.includes(killerName) == true) {
-                let data = dataJs.filter((e:any) => e.Name == killerName)[0];
-                let guild = guildJs.filter((e:any) => e.guildID == data.guildID)[0];
-                addXp(Math.round(entityHealth * 0.8), data.guildID, guild);
+            let killerName = system.getComponent(eventData.data.killer, "minecraft:nameable")!.data.name;
+            if (dataJs.find((e:any, i:any) => e.Name == killerName) != undefined) {
+                let data = dataJs.find((e:any) => e.Name == killerName);
+                let guild = guildJs.find((e:any) => e.guildID == data.guildID);
+                addXp(Math.floor(Math.random() * 100) + 50, data.guildID, guild);
             }
         }
-    }
+    } catch {}
 });
 
-function addXp(xp:number, id:any, IdJs:any){
+function addXp(xp:number, id:string, IdJs:any){
     let memberJs = dataJs.filter((e:any) => e.guildID == id);
     let before = IdJs;
     let [lastLv, lastXp, lastXpM] = [IdJs.level, IdJs.xp, IdJs.xpM];
@@ -871,9 +949,9 @@ function addXp(xp:number, id:any, IdJs:any){
         IdJs.PMC += 2;
         let members:any[] = memberJs.map((e:any, i:any) => e.Name);
         members.forEach(function(element, index, array){
-            system.executeCommand(`tellraw "${element}" {"rawtext":[{"text":"§a§l--------------------\n\n     §6↑ 길드 레벨업 ↑\n§b+1레벨 +2인원수 +33%필요 경험치 접속중인 길드원 전체 3000원 획득\n\n§a--------------------"}]}`, () => {});
+            system.executeCommand(`tellraw "${element}" {"rawtext":[{"text":"§a§l--------------------\n\n     §6↑ 길드 레벨업 ↑\n§b+1레벨 +2인원수 +33%필요 경험치 접속중인 길드원 전체 ${IdJs.level}0000원 획득\n\n§a--------------------"}]}`, () => {});
             system.executeCommand(`execute "${element}" ~ ~ ~ playsound random.anvil_use @s ~ ~ ~ 0.6`, () => {});
-            system.executeCommand(`execute "${element}" ~ ~ ~ scoreboard players add @s money 3000`, () => {});
+            system.executeCommand(`execute "${element}" ~ ~ ~ scoreboard players add @s money ${IdJs.level}000`, () => {});
             setTimeout(function(){
                 system.executeCommand(`execute "${element}" ~ ~ ~ playsound block.grindstone.use @s`, () => {});
             }, 400);
@@ -883,19 +961,24 @@ function addXp(xp:number, id:any, IdJs:any){
 }
 
 
-let backup = setInterval(function(){
+function backup(){
     writeFileSync(localfilePlayer, JSON.stringify(dataJs), 'utf8');
     writeFileSync(localfile, JSON.stringify(guildJs), 'utf8');
-    console.log('guildData AutoSaved!');
-}, 60000);
+};
 
 bedrockServer.close.on(()=> {
-    clearTimeout(backup);
+    clearInterval(c);
     writeFileSync(localfilePlayer, JSON.stringify(dataJs), 'utf8');
     writeFileSync(localfile, JSON.stringify(guildJs), 'utf8');
     console.log('guildData saved!');
 });
 
-import { green } from 'colors';
+
 console.log(green('guild.ts loaded'));
-export {};
+export {
+    addXp,
+    backup,
+    dataJs,
+    guildJs,
+    rank
+};
