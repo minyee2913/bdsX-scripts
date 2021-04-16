@@ -501,76 +501,6 @@ function numberFormat(x:any) {
 //////////////////////////////////////////
 ////////////InventoryTransaction//////////
 
-class stdClass{
-    actionType:number;
-    x:number;
-    y:number;
-    z:number;
-    face:number;
-    hotbarSlot:number;
-    itemInHand:number;
-    playerPos:any;
-    clickPos:any;
-    blockRuntimeId:number;
-    headPos:any;
-}
-
-class InventoryTransactionChangedSlotsHack{
-
-
-	private containerId:number;
-	private changedSlotIndexes:number[];
-
-	/**
-	 * @param int[] $changedSlotIndexes
-	 */
-	public __construct(containerId:number, changedSlotIndexes:any[]){
-		this.containerId = containerId;
-		this.changedSlotIndexes = changedSlotIndexes;
-	}
-
-	public getContainerId():number { return this.containerId; }
-
-	/** @return int[] */
-	public getChangedSlotIndexes():any[] { return this.changedSlotIndexes; }
-
-    public read(In:NativePointer) : any{
-		let containerId = In.readUint8();
-		let changedSlots = [];
-		for(let i = 0, len = In.readVarUint(); i < len; i++){
-			changedSlots[i] = In.readUint8();
-		}
-		return this.__construct(containerId, changedSlots);
-	}
-}
-
-class InventoryTransactionPacket extends NativePointer {
-    public TYPE_NORMAL = 0;
-	public TYPE_MISMATCH = 1;
-	public TYPE_USE_ITEM = 2;
-	public TYPE_USE_ITEM_ON_ENTITY = 3;
-	public TYPE_RELEASE_ITEM = 4;
-
-	public USE_ITEM_ACTION_CLICK_BLOCK = 0;
-	public USE_ITEM_ACTION_CLICK_AIR = 1;
-	public USE_ITEM_ACTION_BREAK_BLOCK = 2;
-
-	public RELEASE_ITEM_ACTION_RELEASE = 0; //bow shoot
-	public RELEASE_ITEM_ACTION_CONSUME = 1; //eat food, drink potion
-
-	public USE_ITEM_ON_ENTITY_ACTION_INTERACT = 0;
-	public USE_ITEM_ON_ENTITY_ACTION_ATTACK = 1;
-
-	public requestId:number;
-    public requestChangedSlots:any[];
-
-	public transactionType:number;
-	public hasItemStackIds:boolean;
-
-	public actions:any[] = [];
-
-    public trData:stdClass;
-}
 
 enum transaction{
     TYPE_NORMAL = 0,
@@ -592,41 +522,6 @@ nethook.raw(MinecraftPacketIds.InventoryTransaction).on((pkt, size, target)=>{
         } catch {
             Arr.push("crashed");
         }
-    }
-    console.log(Arr);
-    if(typeof Arr[2] === "number") switch(Arr[2]){
-        case transaction.TYPE_NORMAL:
-            console.log("TYPE_NORMAL");
-            break;
-        case transaction.TYPE_MISMATCH:
-            console.log("TYPE_MISMATCH");
-            break;
-        case transaction.TYPE_USE_ITEM:
-            console.log("TYPE_USE_ITEM");
-            break;
-        case transaction.TYPE_USE_ITEM_ON_ENTITY:
-            console.log("TYPE_USE_ITEM_ON_ENTITY");
-            break;
-        case transaction.TYPE_RELEASE_ITEM:
-            console.log("TYPE_RELEASE_ITEM");
-            break;
-        default:
-            console.log(`Unknown transaction type ${Arr[2]}`);
-            break;
-    }
-    if(typeof Arr[4] === "number") switch(Arr[4]){
-        case transaction.ACTION_CLICKBLOCK_PLACE:
-            console.log("ACTION_CLICKBLOCK_PLACE");
-            break;
-        case transaction.ACTION_CLICKAIR_USE:
-            console.log("ACTION_CLICKAIR_USE");
-            break;
-        case transaction.ACTION_DESTROY:
-            console.log("ACTION_DESTROY");
-            break;
-        default:
-            console.log(`Unknown action ${Arr[4]}`);
-            break;
     }
     return InventoryTransaction.fire(Arr, target, {type:Arr[2], action:Arr[4]});
 });
