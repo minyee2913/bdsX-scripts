@@ -8,11 +8,19 @@
 // |_____|        |_____|   |__|    |___|  \_______|       |____|       |__________|    |__________|     |___________|           |__|   |_________| |__________|
 //
 //
-import { PacketId, command, NetworkIdentifier, createPacket, sendPacket, MinecraftPacketIds, RawTypeId, Actor, nethook, ServerPlayer } from "bdsx";
-import { BossEventPacket, ContainerOpenPacket, DisconnectPacket, ModalFormRequestPacket, RemoveObjectivePacket, SetDisplayObjectivePacket, SetHealthPacket, SetScorePacket, ShowModalFormPacket, TextPacket, TransferPacket } from "bdsx/bds/packets";
+import { PacketId, command, NetworkIdentifier, createPacket, sendPacket, MinecraftPacketIds, RawTypeId, Actor, nethook, ServerPlayer, NativePointer, serverInstance, bedrockServer } from "bdsx";
+import { CommandOutput } from "bdsx/bds/command";
+import { CommandOrigin } from "bdsx/bds/commandorigin";
+import { BossEventPacket, ContainerOpenPacket, DisconnectPacket, ModalFormRequestPacket, RemoveObjectivePacket, ScriptCustomEventPacket, SetDisplayObjectivePacket, SetHealthPacket, SetScorePacket, ShowModalFormPacket, TextPacket, TransferPacket } from "bdsx/bds/packets";
+import { BinaryStream } from "bdsx/bds/stream";
+import { CANCEL, UNDNAME_NAME_ONLY } from "bdsx/common";
+import { MultiThreadQueue, pdb } from "bdsx/core";
+import { NativeClass } from "bdsx/nativeclass";
+import { ProcHacker } from "bdsx/prochacker";
+import { hex } from "bdsx/util";
 import { red } from 'colors';
 import { open, readFileSync, writeFileSync } from "fs";
-import { create } from "ts-node";
+import Event from "krevent";
 const system = server.registerSystem(0,0);
 
 let playerList:string[] = [];
@@ -20,6 +28,9 @@ let nIt = new Map();
 let nMt = new Map();
 let nXt = new Map();
 nethook.after(PacketId.Login).on((ptr, networkIdentifier) => {
+    if (!(typeof ptr.connreq == "object")) {
+        return;
+    }
     const cert = ptr.connreq.cert
     const xuid = cert.getXuid();
     const username = cert.getId();
@@ -100,28 +111,28 @@ class formJSONTYPE {
 }
 
 class formJSON {
-    type:"form";
-    title:string;
-    content:string;
-    buttons?:{text:string; image?:any}[];
+    type:"form" = "form";
+    title:string = "";
+    content:string = "";
+    buttons:{text:string; image?:any}[] = [];
 }
 
 class CustomformJSON {
-    type:"custom_form";
-    title:string;
-    content:any[];
+    type:"custom_form" = "custom_form";
+    title:string = "";
+    content:any[] = [];
 }
 
 class modalJSON {
-    type:"modal";
-    title:string;
-    content:string;
-    button1?:string;
-    button2?:string;
+    type:"modal" = "modal";
+    title:string = "";
+    content:string = "";
+    button1?:string = "";
+    button2?:string = "";
 }
 
 class FormFile {
-    json: formJSON;
+    json: formJSON = new formJSON();
     handler?: (data: any) => void;
     target: NetworkIdentifier;
     setTitle(title:string) {
@@ -131,7 +142,7 @@ class FormFile {
         this.json.content = content;
     }
     addButton(text:string, image?:object) {
-        this.json.buttons?.push({
+        return this.json.buttons.push({
             text: text,
             image: image
         });
@@ -145,7 +156,7 @@ class FormFile {
 
 }
 class CustomFormFile {
-    json: CustomformJSON;
+    json: CustomformJSON = new CustomformJSON();
     handler?: (data: any) => void;
     target: NetworkIdentifier;
     setTitle(title:string) {
@@ -164,7 +175,7 @@ class CustomFormFile {
 }
 
 class ModalFile {
-    json: modalJSON;
+    json: modalJSON = new modalJSON();
     handler?: (data: any) => void;
     target: NetworkIdentifier;
     setTitle(title:string) {
@@ -187,34 +198,45 @@ class ModalFile {
     }
 
 }
+
+form
+
+
 namespace form {
-    export function create(target:NetworkIdentifier, type?:"form"|"custom_form"|"modal"):FormFile{
-        let form:any;
-        if (type == "form" || type == undefined) {
-            form = new FormFile();
-        } else if (type == "custom_form") {
-            form = new CustomFormFile();
-        } else if (type == "modal") {
-            form = new ModalFile();
+    export const create = {
+        form:(target: NetworkIdentifier): FormFile => {
+            let form = new FormFile();
+            form.target = target;
+            return form;
+        },
+        custom_form:(target: NetworkIdentifier): CustomFormFile => {
+            let form = new CustomFormFile();
+            form.target = target;
+            return form;
+        },
+        modal:(target: NetworkIdentifier): ModalFile => {
+            let form = new ModalFile();
+            form.target = target;
+            return form;
         }
-        form.target = target;
-        return form;
+
     }
+
     export const write = Formsend;
 }
 
 /**
   *JsonType example : https://github.com/NLOGPlugins/Form_Json You can use form.write instead of this
 */
-function Formsend(target: NetworkIdentifier, form: formJSONTYPE, handler?: (data: any) => void, id?:number) {
+function Formsend(target: NetworkIdentifier, form: formJSONTYPE|object, handler?: (data: any) => void, id?:number) {
     try {
         const modalPacket = ShowModalFormPacket.create();
         let formId = Math.floor(Math.random() * 1147483647) + 1000000000;
-        if (typeof id == "number") formId = id;
+        if (typeof id === "number") formId = id;
         modalPacket.setUint32(formId, 0x30);
         modalPacket.setCxxString(JSON.stringify(form), 0x38);
         modalPacket.sendTo(target, 0);
-        if (handler == undefined) handler = ()=>{}
+        if (handler === undefined) handler = ()=>{}
         if (!FormData.has(target)) {
             FormData.set(target, [
                 {
@@ -237,9 +259,9 @@ nethook.raw(PacketId.ModalFormResponse).on((ptr, size, target) => {
     ptr.move(1);
     let formId = ptr.readVarUint();
     let formData = ptr.readVarString();
-    let dataValue = FormData.get(target)!.find((v)=> v.Id == formId)!;
+    let dataValue = FormData.get(target)!.find((v)=> v.Id === formId)!;
     let data = JSON.parse(formData.replace("\n",""));
-    if (dataValue == undefined) return;
+    if (dataValue === undefined) return;
     dataValue.func(data);
     let f = FormData.get(target)!;
     f.splice(f.indexOf(dataValue), 1);
@@ -252,16 +274,16 @@ nethook.raw(PacketId.ModalFormResponse).on((ptr, size, target) => {
  * NAME or NETWORKIDENTIFIER
  *
  *Type Code :
- * Raw == 0,
- * Chat == 1,
- * Translation == 2,
- * Popup == 3,
- * Jukeboxpopup == 4,
- * Tip == 5,
- * system == 6,
- * Whisper == 7,
- * Announcement == 8,
- * Json == 9,
+ * Raw === 0,
+ * Chat === 1,
+ * Translation === 2,
+ * Popup === 3,
+ * Jukeboxpopup === 4,
+ * Tip === 5,
+ * system === 6,
+ * Whisper === 7,
+ * Announcement === 8,
+ * Json === 9,
 */
 function sendText(target: NetworkIdentifier|string, text: string, type?: number) {
     let networkIdentifier:NetworkIdentifier;
@@ -269,7 +291,7 @@ function sendText(target: NetworkIdentifier|string, text: string, type?: number)
     else {
         networkIdentifier = IdByName(target);
     }
-    if ( type == undefined || typeof type != "number") type = 0;
+    if ( type === undefined || typeof type !== "number") type = 0;
     const Packet = TextPacket.create();
     Packet.message = text;
     Packet.setUint32(type, 0x30);
@@ -307,9 +329,9 @@ function playerPermission(playerName: string, ResultEvent = (perm: any) => {}) {
     let permissions = '';
     try {
         operJs = JSON.parse(readFileSync("permissions.json", "utf8"));
-        let Js = operJs.find((v)=> v.xuid == xuid);
+        let Js = operJs.find((v)=> v.xuid === xuid);
         if (Js != undefined) permissions = Js.permission;
-        if (Js == undefined) permissions = 'member';
+        if (Js === undefined) permissions = 'member';
     } catch(err) {
         permissions = 'member';
     }
@@ -327,8 +349,8 @@ function getScore(targetName: string, objectives: string, handler = (result: any
         let msg = String(msgs).split('now');
         let a = String(msg[1]);
         let s = null;
-        if (a.includes('-') == true) s = Number(a.replace(/[^0-9  ]/g, '')) - (Number(a.replace(/[^0-9  ]/g, '')) * 2);
-        if (a.includes('-') == false) s = Number(a.replace(/[^0-9  ]/g, ''));
+        if (a.includes('-') === true) s = Number(a.replace(/[^0-9  ]/g, '')) - (Number(a.replace(/[^0-9  ]/g, '')) * 2);
+        if (a.includes('-') === false) s = Number(a.replace(/[^0-9  ]/g, ''));
         handler(s);
     });
     return;
@@ -368,20 +390,12 @@ class scoreboard{
 	}
 	SetSidebarValue(player:NetworkIdentifier, Id:number, name:string, score:number) {
 		const pkt = SetScorePacket.create();
-		// let entry = new ScoreEntry()
-		// entry.objectiveName = '2913:sidebar';
-		// entry.type = ScoreTYPE.prototype.TYPE_FAKE_PLAYER;
-		// entry.score = score;
-		// entry.scoreboardId = Id;
-		// entry.customName = name;
-		// console.log(JSON.stringify(entry));
-		pkt.setCxxString('2913:sidebar', 0x48);
-		pkt.setInt32(ScoreTYPE.prototype.TYPE_FAKE_PLAYER, 0x8B);
-		pkt.setInt32(score, 0xC4);
-		pkt.setInt32(Id, 0x57);
-		pkt.setCxxString(name, 0x48);
-		pkt.setInt32(0, 0x81);
-		// pkt.setCxxString(JSON.stringify(entry), 0x48);
+		pkt.setCxxString('2913:sidebar', 0xA8);
+		pkt.setInt32(ScoreTYPE.prototype.TYPE_FAKE_PLAYER, 0xA0);
+		pkt.setInt32(score, 0x98);
+		pkt.setInt32(Id, 0x88);
+		pkt.setCxxString(name, 0x68);
+		pkt.setInt32(0, 0x64);
 		pkt.sendTo(player);
 		pkt.dispose();
 	}
@@ -419,28 +433,18 @@ function Disconnect(networkidentifier: NetworkIdentifier, message: string) {
 //bossbar
 
 function setBossBar(target: NetworkIdentifier, title: string, healthPercent: number): void {
-    return;
     let pk = BossEventPacket.create();
-    let uniqueId:any = target.getActor()?.getUniqueIdPointer().getBin64();
-    pk.entityUniqueId = uniqueId;
-    pk.type = 0;
-    pk.title = title;
-    pk.healthPercent = healthPercent;
-    pk.unknown = "";
-    pk.unknown2 = "";
-    // pk.setBin(uniqueId, 0x40);
-    // pk.setUint32(0, 0x48);
-    // pk.setCxxString(title, 0x68);
-    // pk.setFloat32(healthPercent, 0xA8);
+    pk.setBin(target.getActor()!.getUniqueIdPointer().getBin64(), 0x30);
+    pk.setUint32(0, 0x40);
+    pk.setCxxString(title, 0x48);
+    pk.setFloat32(healthPercent, 0x68);
     pk.sendTo(target);
     pk.dispose();
 }
 
 function deleteBossBar(target: NetworkIdentifier): void {
-    return;
     let pk = BossEventPacket.create();
-    let uniqueId:any = target.getActor()?.getUniqueIdPointer().getBin64();
-    pk.setBin(uniqueId, 0x38);
+    pk.setBin(target.getActor()!.getUniqueIdPointer().getBin64(), 0x30);
     pk.setUint32(2, 0x40);
     pk.setCxxString("", 0x48);
     pk.setFloat32(0, 0x68);
@@ -489,33 +493,208 @@ function numberFormat(x:any) {
         if(!resultArray[i]) continue;
         resultString = String(numberFormat(resultArray[i])) + unitWords[i] + resultString;
     }
-    if (number == 0) resultString = "0"
+    if (number === 0) resultString = "0"
 
     return resultString;
 }
 
-function ListenInvTransaction(handler = (ev: {sactiontype: number;sourceType: number;CraftingAction: number;ReleaseAction: number;UseAction: number;useOnAction: number;networkIdentifier:NetworkIdentifier; size:number}) => {}){
-    nethook.raw(PacketId.InventoryTransaction).on((ptr, size, networkIdentifier)=>{
-        let sactiontype = ptr.readVarInt();
-        let sourceType = ptr.readVarInt();
-        let CraftingAction = ptr.readVarInt();
-        let ReleaseAction = ptr.readVarInt();
-        let UseAction = ptr.readVarInt();
-        let useOnAction = ptr.readVarInt();
-        let ev = {
-            sactiontype: sactiontype,
-            sourceType: sourceType,
-            CraftingAction: CraftingAction,
-            ReleaseAction: ReleaseAction,
-            UseAction: UseAction,
-            useOnAction: useOnAction,
-            networkIdentifier: networkIdentifier,
-            size: size
-        }
-        //console.log(`size : ${String(size)}\n\nsactiontype : ${String(sactiontype)}\nsourcetype : ${String(sourceType)}\nCraftingAction : ${String(CraftingAction)}\nReleaseAction : ${String(ReleaseAction)}\nUseAction : ${String(UseAction)}\nuseOnAction : ${String(useOnAction)}`)
-        return handler(ev);
-    });
+//////////////////////////////////////////
+////////////InventoryTransaction//////////
+
+class stdClass{
+    actionType:number;
+    x:number;
+    y:number;
+    z:number;
+    face:number;
+    hotbarSlot:number;
+    itemInHand:number;
+    playerPos:any;
+    clickPos:any;
+    blockRuntimeId:number;
+    headPos:any;
 }
+
+class InventoryTransactionChangedSlotsHack{
+
+
+	private containerId:number;
+	private changedSlotIndexes:number[];
+
+	/**
+	 * @param int[] $changedSlotIndexes
+	 */
+	public __construct(containerId:number, changedSlotIndexes:any[]){
+		this.containerId = containerId;
+		this.changedSlotIndexes = changedSlotIndexes;
+	}
+
+	public getContainerId():number { return this.containerId; }
+
+	/** @return int[] */
+	public getChangedSlotIndexes():any[] { return this.changedSlotIndexes; }
+
+    public read(In:NativePointer) : any{
+		let containerId = In.readUint8();
+		let changedSlots = [];
+		for(let i = 0, len = In.readVarUint(); i < len; i++){
+			changedSlots[i] = In.readUint8();
+		}
+		return this.__construct(containerId, changedSlots);
+	}
+}
+
+class InventoryTransactionPacket extends NativePointer {
+    public TYPE_NORMAL = 0;
+	public TYPE_MISMATCH = 1;
+	public TYPE_USE_ITEM = 2;
+	public TYPE_USE_ITEM_ON_ENTITY = 3;
+	public TYPE_RELEASE_ITEM = 4;
+
+	public USE_ITEM_ACTION_CLICK_BLOCK = 0;
+	public USE_ITEM_ACTION_CLICK_AIR = 1;
+	public USE_ITEM_ACTION_BREAK_BLOCK = 2;
+
+	public RELEASE_ITEM_ACTION_RELEASE = 0; //bow shoot
+	public RELEASE_ITEM_ACTION_CONSUME = 1; //eat food, drink potion
+
+	public USE_ITEM_ON_ENTITY_ACTION_INTERACT = 0;
+	public USE_ITEM_ON_ENTITY_ACTION_ATTACK = 1;
+
+	public requestId:number;
+    public requestChangedSlots:any[];
+
+	public transactionType:number;
+	public hasItemStackIds:boolean;
+
+	public actions:any[] = [];
+
+    public trData:stdClass;
+}
+
+enum transaction{
+    TYPE_NORMAL = 0,
+	TYPE_MISMATCH = 1,
+	TYPE_USE_ITEM = 2,
+	TYPE_USE_ITEM_ON_ENTITY = 3,
+	TYPE_RELEASE_ITEM = 4,
+
+    ACTION_CLICKBLOCK_PLACE = 0,
+    ACTION_CLICKAIR_USE = 1,
+    ACTION_DESTROY = 2
+}
+
+nethook.raw(MinecraftPacketIds.InventoryTransaction).on((pkt, size, target)=>{
+    let Arr:any[] = [];
+    for(let i = 0; i<=size; i++){
+        try{
+            Arr.push(pkt.readVarUint());
+        } catch {
+            Arr.push("crashed");
+        }
+    }
+    console.log(Arr);
+    if(typeof Arr[2] === "number") switch(Arr[2]){
+        case transaction.TYPE_NORMAL:
+            console.log("TYPE_NORMAL");
+            break;
+        case transaction.TYPE_MISMATCH:
+            console.log("TYPE_MISMATCH");
+            break;
+        case transaction.TYPE_USE_ITEM:
+            console.log("TYPE_USE_ITEM");
+            break;
+        case transaction.TYPE_USE_ITEM_ON_ENTITY:
+            console.log("TYPE_USE_ITEM_ON_ENTITY");
+            break;
+        case transaction.TYPE_RELEASE_ITEM:
+            console.log("TYPE_RELEASE_ITEM");
+            break;
+        default:
+            console.log(`Unknown transaction type ${Arr[2]}`);
+            break;
+    }
+    if(typeof Arr[4] === "number") switch(Arr[4]){
+        case transaction.ACTION_CLICKBLOCK_PLACE:
+            console.log("ACTION_CLICKBLOCK_PLACE");
+            break;
+        case transaction.ACTION_CLICKAIR_USE:
+            console.log("ACTION_CLICKAIR_USE");
+            break;
+        case transaction.ACTION_DESTROY:
+            console.log("ACTION_DESTROY");
+            break;
+        default:
+            console.log(`Unknown action ${Arr[4]}`);
+            break;
+    }
+    return InventoryTransaction.fire(Arr, target, {type:Arr[2], action:Arr[4]});
+});
+
+const InventoryTransaction = new Event<(pkt: any[], target:NetworkIdentifier, ev:{type:number, action:number}) => void|CANCEL>();
+
+//////////////////////////////
+///////////on sneak
+
+interface IentitySneakEvent {
+    entity: Actor,
+    isSneaking: boolean;
+}
+class entitySneakEvent implements IentitySneakEvent {
+    constructor(
+        public entity: Actor,
+        public isSneaking: boolean,
+    ) {
+    }
+}
+
+function onEntitySneak(Script:ScriptCustomEventPacket,actor:Actor, bool:boolean):boolean {
+    const event = new entitySneakEvent(actor, bool);
+    EntitySneakEvent.fire(event);
+    return originalFunc(Script, actor, bool);
+}
+const hacker = ProcHacker.load('../pdbcache_by_example.ini', ['SurvivalMode::destroyBlock', 'ScriptServerActorEventListener::onActorSneakChanged'], UNDNAME_NAME_ONLY);
+pdb.close();
+
+const originalFunc = hacker.hooking('ScriptServerActorEventListener::onActorSneakChanged', RawTypeId.Boolean, null, ScriptCustomEventPacket, Actor, RawTypeId.Boolean)(onEntitySneak);
+const EntitySneakEvent = new Event<(event: entitySneakEvent) => void>();
+
+let query = system.registerQuery();
+
+command.register("server_", "Server state with 2913MODULE").overload(state,{});
+command.register("state_", "Server state with 2913MODULE").overload(state,{});
+interface stateEvent {
+    entity: CommandOrigin,
+    log: (string:string)=>void;
+}
+class StateEvent implements stateEvent {
+    constructor(
+        public entity: CommandOrigin,
+        public log: (string:string)=>void
+    ) {
+    }
+}
+function state(p:object,origin:CommandOrigin,output:CommandOutput){
+    let players = `${playerList.length} / ${serverInstance.getMaxPlayers()} player`;
+    let ent = system.getEntitiesFromQuery(query);
+    let entities = `${ent.length + 0} entities`;
+    if (typeof ent === "object") {
+        ent = ent.filter((v)=> typeof v !== "undefined");
+        if (ent.length >= 1) `${ent.length} entities`;
+    }
+    let sId = `Server SessionId: ${bedrockServer.sessionId}`;
+    let motd = `Server Motd: ${serverInstance.getMotd()}`;
+    let l = `${players}\n${entities}\n${sId}\n${motd}`;
+    function log(string:string){
+        if(!origin.isServerCommandOrigin()) sendText(origin.getName(), string);
+        else console.log(string);
+    }
+    log(l);
+    const event = new StateEvent(origin, log);
+    onServerState.fire(event);
+    return output;
+}
+const onServerState = new Event<(event: StateEvent) => void>();
 
 console.log(red('2913MODULE LOADED'));
 export {
@@ -537,6 +716,9 @@ export {
     netCmd,
     numberToKorean,
     numberFormat,
-    ListenInvTransaction,
-    form
+    form,
+    EntitySneakEvent,
+    onServerState,
+    InventoryTransaction,
+    transaction
 };
